@@ -1,27 +1,29 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/Colors';
 
-interface ThemeContextType {
-  theme: 'light' | 'dark';
+type Theme = 'light' | 'dark';
+
+export interface ThemeContextType {
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
   colors: typeof Colors.light | typeof Colors.dark;
-  toggleTheme: () => void;
-  setTheme: (theme: 'light' | 'dark') => void;
+  isDark: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export const ThemeProvider = ({ children }: { children: ReactNode }) => {
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const colorScheme = useColorScheme();
-  const [theme, setThemeState] = useState(colorScheme || 'light');
+  const [theme, setThemeState] = useState<Theme>(colorScheme || 'light');
 
   useEffect(() => {
     const loadTheme = async () => {
       try {
         const savedTheme = await AsyncStorage.getItem('theme');
         if (savedTheme) {
-          setThemeState(savedTheme as 'light' | 'dark');
+          setThemeState(savedTheme as Theme);
         }
       } catch (e) {
         console.error('Failed to load theme.', e);
@@ -30,24 +32,20 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     loadTheme();
   }, []);
 
-  const setTheme = async (newTheme: 'light' | 'dark') => {
+  const setTheme = async (newTheme: Theme) => {
     try {
-      setThemeState(newTheme);
       await AsyncStorage.setItem('theme', newTheme);
+      setThemeState(newTheme);
     } catch (e) {
       console.error('Failed to save theme.', e);
     }
   };
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-  };
-
-  const colors = Colors[theme];
+  const themeColors = Colors[theme];
+  const isDark = theme === 'dark';
 
   return (
-    <ThemeContext.Provider value={{ theme, colors, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, colors: themeColors, isDark }}>
       {children}
     </ThemeContext.Provider>
   );

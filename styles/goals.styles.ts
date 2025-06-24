@@ -15,13 +15,7 @@ export const getGoalsStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: 20,
     paddingTop: 50,
     position: 'relative',
-    borderBottomWidth: 1,
     borderBottomColor: colors.separator,
-  },
-  backButton: {
-    position: 'absolute',
-    left: 20,
-    top: 50,
   },
   headerTitle: {
     fontSize: 20,

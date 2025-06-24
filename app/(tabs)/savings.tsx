@@ -1,48 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getSavingsStyles } from '../../styles/savings.styles';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-
-const initialSavingsData = {
-  totalSavings: 7500,
-  vaults: [
-    {
-      name: 'Emergency Fund',
-      icon: 'shield-checkmark-outline',
-      amount: 5000,
-    },
-    {
-      name: 'Vacation Fund',
-      icon: 'airplane-outline',
-      amount: 1500,
-    },
-    {
-      name: 'New Gadgets',
-      icon: 'phone-portrait-outline',
-      amount: 1000,
-    },
-  ],
-};
+import { useRouter } from 'expo-router';
+import { useSavings } from '../../context/SavingsContext';
 
 export default function SavingsScreen() {
   const { colors } = useTheme();
   const styles = getSavingsStyles(colors);
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const [savingsData, setSavingsData] = useState(initialSavingsData);
-
-  useEffect(() => {
-    if (params.newVault) {
-      const newVault = JSON.parse(params.newVault as string);
-      setSavingsData(currentData => ({
-        ...currentData,
-        vaults: [...currentData.vaults, newVault],
-        totalSavings: currentData.totalSavings + newVault.amount,
-      }));
-    }
-  }, [params.newVault]);
+  const { accounts, selectedAccount, setSelectedAccount } = useSavings();
 
   return (
     <View style={styles.container}>
@@ -50,13 +18,39 @@ export default function SavingsScreen() {
         <Text style={styles.headerTitle}>Savings</Text>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.accountSelector}>
+          {accounts.map(account => (
+            <TouchableOpacity 
+              key={account.id} 
+              style={[styles.accountButton, selectedAccount.id === account.id && styles.selectedAccountButton]}
+              onPress={() => setSelectedAccount(account)}
+            >
+              <Text style={[styles.accountButtonText, selectedAccount.id === account.id && styles.selectedAccountButtonText]}>{account.bankName}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <View style={styles.totalSavingsCard}>
           <Text style={styles.totalSavingsLabel}>Total Savings</Text>
-          <Text style={styles.totalSavingsAmount}>${savingsData.totalSavings.toLocaleString()}</Text>
+          <Text style={styles.totalSavingsAmount}>${selectedAccount.totalSavings.toLocaleString()}</Text>
+        </View>
+
+        <View style={styles.accountInfoCard}>
+          <View style={styles.accountInfoRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="bank-outline" size={22} color={colors.primary} style={{ marginRight: 10 }} />
+                <Text style={styles.accountInfoLabel}>Bank Name</Text>
+            </View>
+            <Text style={styles.accountInfoValue}>{selectedAccount.bankName}</Text>
+          </View>
+          <View style={[styles.accountInfoRow, { marginBottom: 0 }]}>
+            <Text style={styles.accountInfoLabel}>Available Balance</Text>
+            <Text style={styles.accountInfoValue}>${selectedAccount.totalSavings.toLocaleString()}</Text>
+          </View>
         </View>
 
         <Text style={styles.sectionTitle}>Savings Vaults</Text>
-        {savingsData.vaults.map((vault, index) => (
+        {selectedAccount.vaults.map((vault, index) => (
           <TouchableOpacity key={index} style={styles.vaultCard}>
             <Ionicons name={vault.icon as any} size={28} color={colors.primary} />
             <View style={styles.vaultInfo}>

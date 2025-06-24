@@ -39,6 +39,7 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     position: 'absolute',
     top: 25,
     left: 35,
+    zIndex: 1,
     color: colors.secondaryText,
   },
   filtersContainer: {

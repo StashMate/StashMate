@@ -12,7 +12,6 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: 20,
     paddingTop: 50,
     alignItems: 'center',
-    borderBottomWidth: 1,
     borderBottomColor: colors.separator,
   },
   headerTitle: {
@@ -22,6 +21,29 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  accountSelector: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  accountButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    marginHorizontal: 5,
+  },
+  selectedAccountButton: {
+    backgroundColor: colors.primary,
+  },
+  accountButtonText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+  },
+  selectedAccountButtonText: {
+    color: '#fff',
   },
   totalSavingsCard: {
     backgroundColor: colors.primary,
@@ -39,6 +61,27 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
     marginTop: 5,
+  },
+  accountInfoCard: {
+    backgroundColor: colors.card,
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 30,
+  },
+  accountInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  accountInfoLabel: {
+    fontSize: 16,
+    color: colors.secondaryText,
+  },
+  accountInfoValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text,
   },
   sectionTitle: {
     fontSize: 22,

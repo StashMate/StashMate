@@ -130,14 +130,20 @@ export const getDashboardStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 14,
   },
   transactionAmount: {
-    color: colors.text,
     fontSize: 16,
     fontWeight: 'bold',
+    color: colors.text,
+  },
+  expense: {
+    color: colors.danger,
+  },
+  income: {
+    color: colors.success,
   },
   savingsAmount: {
-    color: colors.success,
     fontSize: 16,
     fontWeight: 'bold',
+    color: colors.success,
   },
   quoteCard: {
     backgroundColor: colors.card,
@@ -158,8 +164,78 @@ export const getDashboardStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 10,
   },
   quoteAuthor: {
-    fontSize: 14,
     color: colors.secondaryText,
+    fontStyle: 'italic',
     textAlign: 'center',
+    marginTop: 8,
+  },
+  refreshButton: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 20,
+  },
+  inputContainer: {
+    width: '100%',
+    marginBottom: 15,
+  },
+  inputLabel: {
+    fontSize: 16,
+    color: colors.secondaryText,
+    marginBottom: 5,
+  },
+  input: {
+    width: '100%',
+    backgroundColor: colors.background,
+    color: colors.text,
+    borderRadius: 5,
+    padding: 10,
+    fontSize: 16,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 10,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: colors.iconBackground,
+    marginRight: 10,
+  },
+  saveButton: {
+    backgroundColor: colors.primary,
+    marginLeft: 10,
+  },
+  cancelButtonText: {
+    color: colors.text,
+    fontWeight: 'bold',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 }); 

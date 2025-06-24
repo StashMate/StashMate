@@ -3,10 +3,27 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { ThemeProvider } from '../context/ThemeContext';
+import { ThemeProvider } from '@/context/ThemeContext';
+import { SavingsProvider } from '@/context/SavingsContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+function RootLayoutNav() {
+  const { colors } = useTheme();
+
+  return (
+    <Stack>
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="addGoal" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="addVault" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="rewards" options={{ headerShown: false }} />
+      <Stack.Screen name="investments" options={{ headerShown: false }} />
+      <Stack.Screen name="notifications" options={{ headerShown: false }} />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -25,13 +42,18 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="addGoal" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="addVault" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="rewards" options={{ headerShown: false }} />
-      </Stack>
+      <SavingsProvider>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="investments" options={{ headerShown: false }} />
+          <Stack.Screen name="rewards" options={{ headerShown: false }} />
+          <Stack.Screen name="preferences" options={{ headerShown: false }} />
+          <Stack.Screen name="account" options={{ headerShown: false }} />
+          <Stack.Screen name="addGoal" options={{ headerShown: false }} />
+          <Stack.Screen name="addVault" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        </Stack>
+      </SavingsProvider>
     </ThemeProvider>
   );
 }

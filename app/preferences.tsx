@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 
 export default function PreferencesScreen() {
   const router = useRouter();
-  const { colors, theme, toggleTheme } = useTheme();
+  const { colors, theme, setTheme } = useTheme();
   const styles = getPreferencesStyles(colors);
 
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -33,7 +33,7 @@ export default function PreferencesScreen() {
                     </View>
                     <Switch
                         value={theme === 'dark'}
-                        onValueChange={toggleTheme}
+                        onValueChange={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                         trackColor={{ false: '#767577', true: colors.primary }}
                         thumbColor={'#f4f3f4'}
                     />

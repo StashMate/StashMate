@@ -7,14 +7,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 
 const initialGoals = [
   {
-    name: 'Vacation in Hawaii',
-    icon: 'airplane-outline',
-    current: 2000,
-    target: 5000,
-    deadline: '2024-12-31',
-    image: 'https://images.unsplash.com/photo-1507525428034-b723a9ce6890?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-  },
-  {
     name: 'Down Payment',
     icon: 'home-outline',
     current: 10000,
@@ -49,13 +41,9 @@ export default function GoalsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
-          <Feather name="arrow-left" size={24} color={colors.text} />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Goals</Text>
       </View>
       <ScrollView style={styles.content}>
-        <Text style={styles.sectionTitle}>My Goals</Text>
         {goals.map((goal, index) => {
           const progress = (goal.current / goal.target) * 100;
           return (

@@ -3,27 +3,32 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getTransactionsStyles } from '../../styles/transactions.styles';
 import { ComponentProps, useMemo, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
+import { transactions } from '../../data/transactions';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
-
-const transactions: {icon: IconName, name: string, category: string, amount: number, type: 'income' | 'expense', date: string}[] = [
-    { icon: 'cart-outline', name: 'Fresh Foods Market', category: 'Groceries', amount: 65.20, type: 'expense', date: '2024-10-21' },
-    { icon: 'briefcase-outline', name: 'Tech Solutions Inc.', category: 'Salary', amount: 3500.00, type: 'income', date: '2024-10-20' },
-    { icon: 'lightbulb-on-outline', name: 'Power & Light Co.', category: 'Utilities', amount: 120.50, type: 'expense', date: '2024-10-20' },
-    { icon: 'silverware-fork-knife', name: 'The Cozy Corner Cafe', category: 'Dining', amount: 45.75, type: 'expense', date: '2024-10-19' },
-    { icon: 'home-outline', name: 'Property Management LLC', category: 'Rent', amount: 1200.00, type: 'expense', date: '2024-10-15' },
-    { icon: 'filmstrip', name: 'Cinema City', category: 'Entertainment', amount: 30.00, type: 'expense', date: '2024-10-15' },
-];
 
 export default function TransactionsScreen() {
   const { colors } = useTheme();
   const styles = getTransactionsStyles(colors);
   const [filter, setFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredTransactions = useMemo(() => transactions.filter(t => {
-      if (filter === 'All') return true;
-      return t.type.toLowerCase() === filter.toLowerCase();
-  }), [filter]);
+  const filteredTransactions = useMemo(() => {
+    let filtered = transactions;
+
+    if (filter !== 'All') {
+      filtered = filtered.filter(t => t.type.toLowerCase() === filter.toLowerCase());
+    }
+
+    if (searchQuery) {
+      filtered = filtered.filter(t => 
+        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.category.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  }, [filter, searchQuery]);
 
   const groupedTransactions = useMemo(() => filteredTransactions.reduce((acc, tx) => {
     const date = new Date(tx.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -63,6 +68,8 @@ export default function TransactionsScreen() {
                 placeholder="Search transactions" 
                 style={styles.searchInput}
                 placeholderTextColor={colors.secondaryText}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
             />
         </View>
         
@@ -90,7 +97,7 @@ export default function TransactionsScreen() {
                 {groupedTransactions[date].map((item, index) => (
                     <View key={index} style={styles.transactionItem}>
                         <View style={styles.transactionIcon}>
-                            <MaterialCommunityIcons name={item.icon} size={24} color={colors.primary} />
+                            <MaterialCommunityIcons name={item.icon as IconName} size={24} color={colors.primary} />
                         </View>
                         <View style={styles.transactionDetails}>
                             <Text style={styles.transactionName}>{item.name}</Text>
