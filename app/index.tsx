@@ -48,7 +48,7 @@ export default function WelcomeScreen() {
     taglineOpacity.value = withDelay(1200, withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }));
 
     const timer = setTimeout(() => {
-      router.replace('/(tabs)/dashboard');
+      router.replace('/auth');
     }, 3000);
 
     return () => clearTimeout(timer);
