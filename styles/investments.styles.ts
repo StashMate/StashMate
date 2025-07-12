@@ -11,70 +11,110 @@ export const getInvestmentsStyles = (colors: ThemeColors) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    paddingTop: 20,
-    position: 'relative',
-    borderBottomColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 10,
   },
   backButton: {
-    position: 'absolute',
-    left: 20,
-    top: 20,
+    // Keping this empty as it is handled in the view
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.text,
+    marginLeft: 16,
   },
   content: {
-    padding: 16,
+    padding: 20,
+  },
+  summaryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
   },
   summaryCard: {
+    flex: 1,
     backgroundColor: colors.card,
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    padding: 16,
+    alignItems: 'center',
+    marginHorizontal: 4,
     borderWidth: 1,
     borderColor: colors.border,
+    justifyContent: 'center',
   },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginLeft: 8,
+  summaryLabel: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   summaryValue: {
-    fontSize: 36,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: 8,
-  },
-  summaryGain: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.success,
-  },
-  chartContainer: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
+    textAlign: 'center',
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: 16,
   },
-  holdingCard: {
+  assetAllocationCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  allocationHeader: {
+    marginBottom: 16,
+  },
+  allocationTitle: {
+    fontSize: 14,
+    color: colors.secondaryText,
+  },
+  allocationValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  chartContainer: {
+    marginLeft: -16,
+  },
+  performanceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  performanceCard: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  performanceLabel: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    marginBottom: 8,
+  },
+  performanceValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  performanceChange: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  investmentCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
@@ -84,39 +124,59 @@ export const getInvestmentsStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  holdingIcon: {
+  investmentIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 8,
     backgroundColor: colors.iconBackground,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
   },
-  holdingInfo: {
+  investmentInfo: {
     flex: 1,
-    marginLeft: 16,
   },
-  holdingName: {
+  investmentName: {
     fontSize: 16,
     fontWeight: 'bold',
     color: colors.text,
   },
-  holdingSymbol: {
+  investmentType: {
     fontSize: 14,
     color: colors.secondaryText,
-    marginTop: 2,
   },
-  holdingValueContainer: {
-    alignItems: 'flex-end',
-  },
-  holdingValue: {
+  investmentValue: {
     fontSize: 16,
     fontWeight: 'bold',
     color: colors.text,
   },
-  holdingGain: {
-    fontSize: 14,
-    color: colors.success,
-    marginTop: 2,
+  legendContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+    marginBottom: 8,
+  },
+  legendColorBox: {
+    width: 14,
+    height: 14,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  legendText: {
+    fontSize: 12,
+    color: colors.secondaryText,
+  },
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 8,
   },
 }); 

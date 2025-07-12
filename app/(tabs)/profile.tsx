@@ -16,7 +16,7 @@ export default function ProfileScreen() {
         {
           title: 'Account',
           items: [
-            { icon: 'person-outline', label: 'Account Details', onPress: () => router.push('/account') },
+            { icon: 'person-outline', label: 'Account Settings', onPress: () => router.push('/account') },
             { icon: 'settings-outline', label: 'App Preferences', onPress: () => router.push('/preferences') },
             { icon: 'notifications-outline', label: 'Notifications', onPress: () => router.push('/notifications') },
           ],

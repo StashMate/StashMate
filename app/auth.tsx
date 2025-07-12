@@ -93,7 +93,7 @@ export default function AuthScreen() {
                         secureTextEntry={!confirmPasswordVisible}
                       />
                       <TouchableOpacity style={styles.eyeIcon} onPress={() => setConfirmPasswordVisible(!confirmPasswordVisible)}>
-                        <Ionicons name={confirmPasswordVisible ? "eye-off-outline" : "eye-outline"} size={22} color={colors.secondaryText} />
+                        <Ionicons name={confirmPasswordVisible ? "eye-outline" : "eye-off-outline"} size={22} color={colors.secondaryText} />
                     </TouchableOpacity>
                     </View>
                   </View>
