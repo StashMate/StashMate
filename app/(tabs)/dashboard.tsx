@@ -1,17 +1,40 @@
-import React, { View, Text, StyleSheet, SafeAreaView, ScrollView, Image, TouchableOpacity, Modal, TextInput, Button } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { ComponentProps, useEffect, useState } from 'react';
-import { getDashboardStyles } from '../../styles/dashboard.styles';
-import { getChatbotStyles } from '../../styles/chatbot.styles';
-import { useTheme } from '../../context/ThemeContext';
 import { useRouter } from 'expo-router';
-import { transactions } from '../../data/transactions';
-import { useSavings } from '../../context/SavingsContext';
+import { collection, doc, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore';
+import React, { ComponentProps, useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Image,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { useTheme } from '../../context/ThemeContext';
+import { useUser } from '../../context/UserContext';
 import { financialQuotes } from '../../data/quotes';
+import { db } from '../../firebase';
+import { getChatbotStyles } from '../../styles/chatbot.styles';
+import { getDashboardStyles } from '../../styles/dashboard.styles';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-const recentTransactions = transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 3);
+interface Transaction {
+  id: string;
+  name: string;
+  amount: number;
+  category: string;
+  type: 'income' | 'expense';
+  date: Timestamp;
+}
+
+interface UserData {
+  streak?: number;
+  // Add other user properties as needed
+}
 
 type Quote = {
   q: string;
@@ -23,11 +46,46 @@ export default function DashboardScreen() {
   const dashboardStyles = getDashboardStyles(colors);
   const chatbotStyles = getChatbotStyles(colors);
   const router = useRouter();
-  const { selectedAccount } = useSavings();
+  const { user } = useUser();
+
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [budget, setBudget] = useState({ current: 600, target: 1000 });
   const [isBudgetModalVisible, setBudgetModalVisible] = useState(false);
   const [tempBudget, setTempBudget] = useState(budget);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Fetch user data for streak
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
+      if (doc.exists()) {
+        setUserData(doc.data() as UserData);
+      }
+      setLoading(false);
+    });
+
+    // Fetch recent transactions
+    const q = query(
+      collection(db, 'transactions'),
+      where('userId', '==', user.uid),
+      orderBy('date', 'desc')
+    );
+    const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
+      const fetchedTransactions: Transaction[] = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Transaction)
+      );
+      setRecentTransactions(fetchedTransactions);
+    });
+
+    return () => {
+      unsubscribeUser();
+      unsubscribeTransactions();
+    };
+  }, [user]);
 
   const handleSaveBudget = () => {
     setBudget(tempBudget);
@@ -42,6 +100,14 @@ export default function DashboardScreen() {
   useEffect(() => {
     fetchQuote();
   }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={dashboardStyles.container}>
+        <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1 }} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={dashboardStyles.container}>
@@ -71,7 +137,7 @@ export default function DashboardScreen() {
             <View style={dashboardStyles.summaryCard}>
                 <Ionicons name="flame-outline" size={28} color={colors.link} />
                 <Text style={dashboardStyles.summaryCardTitle}>Savings Streak</Text>
-                <Text style={dashboardStyles.summaryCardValue}>12 weeks</Text>
+                <Text style={dashboardStyles.summaryCardValue}>{userData?.streak || 0} days</Text>
             </View>
         </View>
 
@@ -94,7 +160,7 @@ export default function DashboardScreen() {
         {recentTransactions.map((item, index) => (
           <TouchableOpacity key={index} style={dashboardStyles.transactionItem} onPress={() => router.push('/(tabs)/transactions')}>
             <View style={dashboardStyles.transactionIcon}>
-              <MaterialCommunityIcons name={item.icon as any} size={24} color={colors.primary} />
+              <MaterialCommunityIcons name={"bank-transfer"} size={24} color={colors.primary} />
             </View>
             <View style={dashboardStyles.transactionDetails}>
               <Text style={dashboardStyles.transactionName}>{item.name}</Text>
@@ -112,23 +178,9 @@ export default function DashboardScreen() {
             <MaterialCommunityIcons name="bank-outline" size={24} color={colors.primary} />
           </View>
           <View style={dashboardStyles.transactionDetails}>
-            <Text style={dashboardStyles.transactionName}>{selectedAccount.bankName}</Text>
-            <Text style={dashboardStyles.transactionCategory}>Total Savings</Text>
+            <Text style={dashboardStyles.transactionName}>Total Savings</Text>
           </View>
-          <Text style={dashboardStyles.savingsAmount}>${selectedAccount.totalSavings.toFixed(2)}</Text>
         </TouchableOpacity>
-
-        <Text style={dashboardStyles.sectionTitle}>Investments</Text>
-        <TouchableOpacity style={dashboardStyles.transactionItem} onPress={() => router.push('/investments')}>
-          <View style={dashboardStyles.transactionIcon}>
-            <Ionicons name="analytics" size={24} color={colors.primary} />
-          </View>
-          <View style={dashboardStyles.transactionDetails}>
-            <Text style={dashboardStyles.transactionName}>View Investment Performance</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color={colors.text} />
-        </TouchableOpacity>
-
       </ScrollView>
       <TouchableOpacity style={chatbotStyles.fab} onPress={() => router.push('/chatbot')}>
         <Ionicons name="chatbubble-ellipses-outline" size={24} color="#FFFFFF" />

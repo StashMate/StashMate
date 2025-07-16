@@ -81,15 +81,19 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
   },
   summaryItem: {
     alignItems: 'center',
+    flex: 1,
+    paddingHorizontal: 5,
   },
   summaryLabel: {
     color: colors.secondaryText,
     fontSize: 14,
+    marginBottom: 5,
   },
   summaryAmount: {
     color: colors.text,
     fontSize: 18,
     fontWeight: 'bold',
+    flexShrink: 1,
   },
   incomeText: {
     color: colors.success,
@@ -116,6 +120,13 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     padding: 15,
     marginTop: 10,
     marginHorizontal: 20,
+    borderLeftWidth: 5,
+  },
+  incomeBorder: {
+    borderLeftColor: colors.success,
+  },
+  expenseBorder: {
+    borderLeftColor: colors.danger,
   },
   transactionIcon: {
     width: 50,
@@ -160,6 +171,18 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyStateText: {
+    color: colors.secondaryText,
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 10,
   },
   chartContainer: {
     paddingHorizontal: 20,

@@ -1,15 +1,13 @@
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp } from 'firebase/app';
 import {
-    createUserWithEmailAndPassword,
-    getReactNativePersistence,
-    GoogleAuthProvider,
-    initializeAuth,
-    signInWithCredential,
-    signInWithEmailAndPassword,
-    updateProfile
+  createUserWithEmailAndPassword,
+  getAuth,
+  GoogleAuthProvider,
+  signInWithCredential,
+  signInWithEmailAndPassword,
+  updateProfile
 } from 'firebase/auth';
-import { doc, getDoc, getFirestore, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getFirestore, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -24,10 +22,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
-});
-
+const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
@@ -56,11 +51,13 @@ export const signUpWithEmail = async (fullName: string, email: string, password:
       email: user.email,
       displayName: fullName,
       createdAt: serverTimestamp(),
+      lastLogin: serverTimestamp(),
+      streak: 1, 
     });
 
     // Return a success status and the user object
     return { success: true, user: { uid: user.uid, email: user.email, displayName: fullName } };
-  } catch (error) {
+  } catch (error: any) {
     // Return a failure status and the error message
     return { success: false, error: error.message };
   }
@@ -77,14 +74,36 @@ export const signInWithEmail = async (email: string, password: string) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Update last login time
     const userDocRef = doc(db, 'users', user.uid);
-    await updateDoc(userDocRef, {
-      lastLogin: serverTimestamp(),
-    });
+    const userDoc = await getDoc(userDocRef);
+    const userData = userDoc.data();
+
+    if (userData && userData.lastLogin) {
+      const lastLoginDate = userData.lastLogin.toDate();
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+
+      if (lastLoginDate.toDateString() === yesterday.toDateString()) {
+        await updateDoc(userDocRef, {
+          streak: (userData.streak || 0) + 1,
+          lastLogin: serverTimestamp(),
+        });
+      } else if (lastLoginDate.toDateString() !== today.toDateString()) {
+        await updateDoc(userDocRef, {
+          streak: 1,
+          lastLogin: serverTimestamp(),
+        });
+      }
+    } else {
+      await updateDoc(userDocRef, {
+        lastLogin: serverTimestamp(),
+        streak: 1,
+      });
+    }
 
     return { success: true, user: { uid: user.uid, email: user.email, displayName: user.displayName } };
-  } catch (error) {
+  } catch (error: any) {
     return { success: false, error: error.message };
   }
 };
@@ -116,21 +135,98 @@ export const signInWithGoogle = async (id_token: string) => {
         photoURL: user.photoURL,
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
+        streak: 1,
       });
       return { success: true, user: user, isNewUser: true };
     } else {
-      // If the user already exists, just update their last login time
-      await updateDoc(userDocRef, {
-        lastLogin: serverTimestamp(),
-      });
+      // If the user already exists, update their streak and last login time
+      const userData = userDocSnap.data();
+      if (userData && userData.lastLogin) {
+        const lastLoginDate = userData.lastLogin.toDate();
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+
+        if (lastLoginDate.toDateString() === yesterday.toDateString()) {
+          await updateDoc(userDocRef, {
+            streak: (userData.streak || 0) + 1,
+            lastLogin: serverTimestamp(),
+          });
+        } else if (lastLoginDate.toDateString() !== today.toDateString()) {
+          await updateDoc(userDocRef, {
+            streak: 1,
+            lastLogin: serverTimestamp(),
+          });
+        }
+      } else {
+        await updateDoc(userDocRef, {
+          lastLogin: serverTimestamp(),
+          streak: 1,
+        });
+      }
       return { success: true, user: user, isNewUser: false };
     }
-  } catch (error) {
+  } catch (error: any) {
     // Return a failure status and the error message
     console.error("Error during Google Sign-In:", error);
     return { success: false, error: error.message };
   }
 };
+
+/**
+ * Adds a new transaction document to Firestore for a specific user.
+ * @param {string} userId - The ID of the user adding the transaction.
+ * @param {object} transactionData - The transaction data.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const addTransaction = async (userId: string, transactionData: { name: string; amount: number; category: string; type: 'income' | 'expense' }) => {
+  try {
+    const transactionsCollectionRef = collection(db, 'transactions');
+    await addDoc(transactionsCollectionRef, {
+      ...transactionData,
+      userId: userId,
+      date: serverTimestamp(), // Use server timestamp for consistency
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error adding transaction:", error);
+    return { success: false, error: "Failed to add transaction. Please try again." };
+  }
+};
+
+/**
+ * Updates an existing transaction document in Firestore.
+ * @param {string} transactionId - The ID of the transaction to update.
+ * @param {object} updatedData - The data to update.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const updateTransaction = async (transactionId: string, updatedData: any) => {
+  try {
+    const transactionDocRef = doc(db, 'transactions', transactionId);
+    await updateDoc(transactionDocRef, updatedData);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating transaction:", error);
+    return { success: false, error: "Failed to update transaction. Please try again." };
+  }
+};
+
+/**
+ * Deletes a transaction document from Firestore.
+ * @param {string} transactionId - The ID of the transaction to delete.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const deleteTransaction = async (transactionId: string) => {
+  try {
+    const transactionDocRef = doc(db, 'transactions', transactionId);
+    await deleteDoc(transactionDocRef);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting transaction:", error);
+    return { success: false, error: "Failed to delete transaction. Please try again." };
+  }
+};
+
 
 export { app, auth, db, storage };
 
