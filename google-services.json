@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "432053844904",
+    "project_id": "my-app-auth-e80cd",
+    "storage_bucket": "my-app-auth-e80cd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:432053844904:android:2de7111ac11e79cae8fb9d",
+        "android_client_info": {
+          "package_name": "com.yourcompany.stashmate"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "432053844904-g6b3bbn49r832ru0b8lbrjajpcu97jag.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAEjn26eeQMShMAgv-ZrlybIL4zvr6nvLM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "432053844904-g6b3bbn49r832ru0b8lbrjajpcu97jag.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

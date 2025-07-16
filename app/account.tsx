@@ -1,8 +1,8 @@
-import { View, Text, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { getAccountStyles } from '../styles/account.styles';
-import { useRouter, Stack, Link } from 'expo-router';
+import { Link, Stack, useRouter } from 'expo-router';
+import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { getAccountStyles } from '../styles/account.styles';
 
 export default function AccountScreen() {
   const router = useRouter();

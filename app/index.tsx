@@ -1,10 +1,10 @@
+import { FontAwesome5 } from '@expo/vector-icons';
+import { router, Stack } from 'expo-router';
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { useTheme } from '../context/ThemeContext';
 import { styles } from '../styles/welcome.styles';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, withDelay } from 'react-native-reanimated';
-import { router, Stack } from 'expo-router';
-import { FontAwesome5 } from '@expo/vector-icons';
 
 const brandName = "StashMate";
 
@@ -48,7 +48,7 @@ export default function WelcomeScreen() {
     taglineOpacity.value = withDelay(1200, withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }));
 
     const timer = setTimeout(() => {
-      router.replace('/auth');
+      router.replace('/login');
     }, 3000);
 
     return () => clearTimeout(timer);

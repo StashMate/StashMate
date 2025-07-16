@@ -1,9 +1,10 @@
-import { View, Text, SafeAreaView, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getProfileStyles } from '../../styles/profile.styles';
-import { ComponentProps } from 'react';
 import { useRouter } from 'expo-router';
+import { ComponentProps } from 'react';
+import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useUser } from '../../context/UserContext';
+import { getProfileStyles } from '../../styles/profile.styles';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -11,6 +12,7 @@ export default function ProfileScreen() {
     const router = useRouter();
     const { colors } = useTheme();
     const styles = getProfileStyles(colors);
+    const { user } = useUser();
 
     const menuItems = [
         {
@@ -47,8 +49,8 @@ export default function ProfileScreen() {
                         style={styles.profileImage}
                     />
                     <View style={styles.profileTextContainer}>
-                        <Text style={styles.profileName}>Sophia Carter</Text>
-                        <Text style={styles.profileHandle}>@sophia.carter</Text>
+                        <Text style={styles.profileName}>{user?.displayName || 'Your Name'}</Text>
+                        <Text style={styles.profileHandle}>{user?.email || '@username'}</Text>
                     </View>
                 </View>
 

@@ -22,12 +22,13 @@ export const getAuthStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text,
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: 10,  
   },
   subtitle: {
     fontSize: 16,
     color: colors.secondaryText,
     textAlign: 'center',
+    marginTop:-15,
     marginBottom: 30,
   },
   formContainer: {
@@ -119,7 +120,7 @@ export const getAuthStyles = (colors: ThemeColors) => StyleSheet.create({
   toggleContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 5,
   },
   toggleText: {
     fontSize: 16,

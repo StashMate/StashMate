@@ -1,22 +1,39 @@
+import { SavingsProvider } from '@/context/SavingsContext';
+import { ThemeProvider } from '@/context/ThemeContext';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { ThemeProvider, useTheme } from '@/context/ThemeContext';
-import { SavingsProvider } from '@/context/SavingsContext';
-import { Colors } from '@/constants/Colors';
+import { UserProvider, useUser } from '../context/UserContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
-  const { isDark } = useTheme();
-  const colors = isDark ? Colors.dark : Colors.light;
+  const { user } = useUser();
+  const router = useRouter();
+  const segments = useSegments();
+  
+  useEffect(() => {
+    // Check if the current route is inside the main app/(tabs) or auth routes
+    const inAuthGroup = segments[0] === '(auth)';
+    const inAppGroup = segments[0] === '(tabs)';
+
+    // If we are in a defined route group, and not authenticated, redirect to login
+    if (!user && !inAuthGroup && segments.length > 0) {
+      router.replace('/login');
+    } 
+    // If we are authenticated and in the auth group, redirect to the dashboard
+    else if (user && inAuthGroup) {
+      router.replace('/(tabs)/dashboard');
+    }
+  }, [user, segments, router]);
 
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="addGoal" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="addVault" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="linkBank" options={{ presentation: 'modal', headerShown: false }} />
@@ -35,9 +52,13 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
-  const [loaded] = useFonts({
+  const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  useEffect(() => {
+    if (error) throw error;
+  }, [error]);
 
   useEffect(() => {
     if (loaded) {
@@ -50,10 +71,12 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <SavingsProvider>
-        <RootLayoutNav />
-      </SavingsProvider>
-    </ThemeProvider>
+    <UserProvider>
+      <ThemeProvider>
+        <SavingsProvider>
+          <RootLayoutNav />
+        </SavingsProvider>
+      </ThemeProvider>
+    </UserProvider>
   );
 }
