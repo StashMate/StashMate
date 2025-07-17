@@ -24,9 +24,11 @@ export const getAddVaultStyles = (colors: ThemeColors) => StyleSheet.create({
         color: colors.text,
     },
     saveButton: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: colors.primary,
+        backgroundColor: colors.primary,
+        borderRadius: 10,
+        padding: 15,
+        alignItems: 'center',
+        marginTop: 20,
     },
     form: {
         padding: 20,
@@ -42,6 +44,19 @@ export const getAddVaultStyles = (colors: ThemeColors) => StyleSheet.create({
         color: colors.text,
         borderRadius: 10,
         padding: 15,
+        fontSize: 16,
+    },
+    dateInput: {
+        backgroundColor: colors.card,
+        borderRadius: 10,
+        padding: 15,
+        fontSize: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    dateText: {
+        color: colors.text,
         fontSize: 16,
     },
     iconSelector: {
@@ -68,5 +83,29 @@ export const getAddVaultStyles = (colors: ThemeColors) => StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContent: {
+        backgroundColor: colors.card,
+        borderRadius: 15,
+        padding: 20,
+        width: '90%',
+        maxWidth: 400,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.text,
     },
 }); 

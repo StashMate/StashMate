@@ -46,6 +46,39 @@ export const getReportsStyles = (colors: IColors) => StyleSheet.create({
     activeFilterButtonText: {
         color: '#FFFFFF',
     },
+    progressContainer: {
+        backgroundColor: colors.card,
+        borderRadius: 10,
+        padding: 16,
+        marginBottom: 20,
+    },
+    progressTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.text,
+        marginBottom: 15,
+        textAlign: 'center',
+    },
+    progressStats: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+    },
+    progressStatItem: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    progressStatValue: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: colors.primary,
+        marginBottom: 4,
+    },
+    progressStatLabel: {
+        fontSize: 12,
+        color: colors.secondaryText,
+        textAlign: 'center',
+    },
     chartContainer: {
         marginBottom: 30,
         backgroundColor: colors.card,

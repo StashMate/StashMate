@@ -219,7 +219,16 @@ export default function SavingsScreen() {
                                 </View>
                             )})
                         ) : (
-                            <Text style={styles.emptyVaultsText}>No savings vaults in this account yet.</Text>
+                            <View style={styles.emptyVaultsContainer}>
+                                <Text style={styles.emptyVaultsText}>No savings vaults in this account yet.</Text>
+                                <TouchableOpacity 
+                                    style={styles.inlineCreateButton} 
+                                    onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}
+                                >
+                                    <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+                                    <Text style={styles.inlineCreateButtonText}>Create Your First Vault</Text>
+                                </TouchableOpacity>
+                            </View>
                         )}
                     </>
                 )}
@@ -259,10 +268,12 @@ export default function SavingsScreen() {
                 </View>
             </Modal>
 
-            <TouchableOpacity style={styles.newVaultButton} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
-                <Ionicons name="add" size={24} color="#fff" />
-                <Text style={styles.newVaultButtonText}>Create New Vault</Text>
-            </TouchableOpacity>
+            {selectedAccount && vaults.length > 0 && (
+                <TouchableOpacity style={styles.newVaultButton} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
+                    <Ionicons name="add" size={20} color="#fff" />
+                    <Text style={styles.newVaultButtonText}>New Vault</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 } 

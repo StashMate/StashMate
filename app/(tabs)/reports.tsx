@@ -2,17 +2,17 @@ import { eachDayOfInterval, eachMonthOfInterval, endOfMonth, endOfWeek, endOfYea
 import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { BarChart, LineChart } from 'react-native-chart-kit';
+import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
 import { db } from '../../firebase';
 import { getReportsStyles } from '../../styles/reports.styles';
 
-
 interface Transaction {
     id: string;
     type: 'income' | 'expense';
     amount: number;
+    category?: string;
     date: { toDate: () => Date };
     [key: string]: any;
 }
@@ -32,7 +32,6 @@ interface Account {
 }
 
 type TimeRange = 'Weekly' | 'Monthly' | 'Yearly';
-
 
 export default function ReportsScreen() {
     const { colors } = useTheme();
@@ -171,6 +170,39 @@ export default function ReportsScreen() {
         }]
     };
 
+    // Prepare data for Expense Categories Pie Chart
+    const getExpenseCategoriesData = () => {
+        const expenseTransactions = transactions.filter(t => t.type === 'expense');
+        const categoryTotals: { [key: string]: number } = {};
+
+        expenseTransactions.forEach(t => {
+            const category = t.category || 'Other';
+            categoryTotals[category] = (categoryTotals[category] || 0) + t.amount;
+        });
+
+        const colors = [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', 
+            '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#36A2EB'
+        ];
+
+        return Object.entries(categoryTotals).map(([name, amount], index) => ({
+            name,
+            amount,
+            color: colors[index % colors.length],
+            legendFontColor: colors.text,
+            legendFontSize: 14,
+        }));
+    };
+
+    // Calculate savings progress
+    const getSavingsProgress = () => {
+        const totalVaults = accounts.reduce((sum, account) => sum + account.vaults.length, 0);
+        const completedVaults = accounts.reduce((sum, account) => 
+            sum + account.vaults.filter(vault => vault.currentAmount >= vault.targetAmount).length, 0);
+        
+        return totalVaults > 0 ? (completedVaults / totalVaults) * 100 : 0;
+    };
+
     if (loading) {
         return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, justifyContent: 'center' }} />;
     }
@@ -182,6 +214,9 @@ export default function ReportsScreen() {
             </View>
         );
     }
+
+    const expenseCategoriesData = getExpenseCategoriesData();
+    const savingsProgress = getSavingsProgress();
 
     return (
         <ScrollView style={styles.container}>
@@ -203,6 +238,25 @@ export default function ReportsScreen() {
                 ))}
             </View>
 
+            {/* Savings Progress Overview */}
+            <View style={styles.progressContainer}>
+                <Text style={styles.progressTitle}>Savings Progress Overview</Text>
+                <View style={styles.progressStats}>
+                    <View style={styles.progressStatItem}>
+                        <Text style={styles.progressStatValue}>{savingsProgress.toFixed(1)}%</Text>
+                        <Text style={styles.progressStatLabel}>Goals Completed</Text>
+                    </View>
+                    <View style={styles.progressStatItem}>
+                        <Text style={styles.progressStatValue}>{accounts.reduce((sum, acc) => sum + acc.vaults.length, 0)}</Text>
+                        <Text style={styles.progressStatLabel}>Total Vaults</Text>
+                    </View>
+                    <View style={styles.progressStatItem}>
+                        <Text style={styles.progressStatValue}>${accounts.reduce((sum, acc) => sum + acc.balance, 0).toLocaleString()}</Text>
+                        <Text style={styles.progressStatLabel}>Total Savings</Text>
+                    </View>
+                </View>
+            </View>
+
             <View style={styles.chartContainer}>
                 <Text style={styles.chartTitle}>{timeRange} Financial Trend</Text>
                 {transactions.length > 0 ? (
@@ -217,6 +271,26 @@ export default function ReportsScreen() {
                     <Text style={styles.emptyStateText}>No transaction data to display trend.</Text>
                 )}
             </View>
+
+            {/* Expense Categories Pie Chart */}
+            <View style={styles.chartContainer}>
+                <Text style={styles.chartTitle}>Expense Categories</Text>
+                {expenseCategoriesData.length > 0 ? (
+                    <PieChart
+                        data={expenseCategoriesData}
+                        width={screenWidth - 32}
+                        height={220}
+                        chartConfig={chartConfig}
+                        accessor="amount"
+                        backgroundColor="transparent"
+                        paddingLeft="15"
+                        absolute
+                    />
+                ) : (
+                    <Text style={styles.emptyStateText}>No expense data available.</Text>
+                )}
+            </View>
+
             <View style={styles.chartContainer}>
                 <Text style={styles.chartTitle}>Savings Distribution</Text>
                 {accounts.length > 0 ? (

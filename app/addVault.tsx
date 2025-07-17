@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { addVault } from '../firebase';
 import { getAddVaultStyles } from '../styles/addVault.styles';
@@ -18,7 +18,6 @@ export default function AddVaultScreen() {
     const [selectedIcon, setSelectedIcon] = useState('wallet-outline');
     const [deadline, setDeadline] = useState<Date | undefined>(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
-
 
     const handleSave = async () => {
         if (!name.trim() || !targetAmount.trim() || !deadline) {
@@ -49,7 +48,7 @@ export default function AddVaultScreen() {
 
     const onDateChange = (event: any, selectedDate?: Date) => {
         const currentDate = selectedDate || deadline;
-        setShowDatePicker(Platform.OS === 'ios');
+        setShowDatePicker(false);
         setDeadline(currentDate);
     };
 
@@ -89,19 +88,10 @@ export default function AddVaultScreen() {
                     />
 
                     <Text style={styles.label}>Deadline</Text>
-                    <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
-                        <Text style={{color: colors.text}}>{deadline ? deadline.toLocaleDateString() : 'Select a date'}</Text>
+                    <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateInput}>
+                        <Text style={styles.dateText}>{deadline ? deadline.toLocaleDateString() : 'Select a date'}</Text>
+                        <Ionicons name="calendar-outline" size={20} color={colors.primary} />
                     </TouchableOpacity>
-
-                    {showDatePicker && (
-                        <DateTimePicker
-                            testID="dateTimePicker"
-                            value={deadline || new Date()}
-                            mode="date"
-                            display="default"
-                            onChange={onDateChange}
-                        />
-                    )}
 
                     <Text style={styles.label}>Choose an Icon</Text>
                     <View style={styles.iconSelector}>
@@ -120,6 +110,33 @@ export default function AddVaultScreen() {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
+
+            {/* Date Picker Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={showDatePicker}
+                onRequestClose={() => setShowDatePicker(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Select Deadline</Text>
+                            <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                                <Ionicons name="close" size={24} color={colors.text} />
+                            </TouchableOpacity>
+                        </View>
+                        <DateTimePicker
+                            testID="dateTimePicker"
+                            value={deadline || new Date()}
+                            mode="date"
+                            display="default"
+                            onChange={onDateChange}
+                            minimumDate={new Date()}
+                        />
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 } 
