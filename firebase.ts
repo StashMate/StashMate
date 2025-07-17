@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { addDoc, collection, deleteDoc, doc, getDoc, getFirestore, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -341,6 +341,132 @@ export const deleteVault = async (accountId: string, vaultId: string) => {
   }
 };
 
+/**
+ * Adds money to a savings vault and deducts it from the account balance.
+ * @param {string} accountId - The ID of the account containing the vault.
+ * @param {string} vaultId - The ID of the vault to add money to.
+ * @param {number} amount - The amount to add to the vault.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const addMoneyToVault = async (accountId: string, vaultId: string, amount: number) => {
+  try {
+    // Get current account balance
+    const accountDocRef = doc(db, 'accounts', accountId);
+    const accountDoc = await getDoc(accountDocRef);
+    
+    if (!accountDoc.exists()) {
+      throw new Error("Account not found");
+    }
+    
+    const accountData = accountDoc.data();
+    const currentBalance = accountData.balance || 0;
+    
+    if (currentBalance < amount) {
+      throw new Error("Insufficient funds");
+    }
+    
+    // Get current vault data
+    const vaultDocRef = doc(db, 'accounts', accountId, 'vaults', vaultId);
+    const vaultDoc = await getDoc(vaultDocRef);
+    
+    if (!vaultDoc.exists()) {
+      throw new Error("Vault not found");
+    }
+    
+    const vaultData = vaultDoc.data();
+    const currentVaultAmount = vaultData.currentAmount || 0;
+    
+    // Update vault amount
+    await updateDoc(vaultDocRef, {
+      currentAmount: currentVaultAmount + amount,
+    });
+    
+    // Update account balance
+    await updateDoc(accountDocRef, {
+      balance: currentBalance - amount,
+    });
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error adding money to vault:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Withdraws money from a savings vault and adds it back to the account balance.
+ * @param {string} accountId - The ID of the account containing the vault.
+ * @param {string} vaultId - The ID of the vault to withdraw money from.
+ * @param {number} amount - The amount to withdraw from the vault.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const withdrawMoneyFromVault = async (accountId: string, vaultId: string, amount: number) => {
+  try {
+    // Get current vault data
+    const vaultDocRef = doc(db, 'accounts', accountId, 'vaults', vaultId);
+    const vaultDoc = await getDoc(vaultDocRef);
+    
+    if (!vaultDoc.exists()) {
+      throw new Error("Vault not found");
+    }
+    
+    const vaultData = vaultDoc.data();
+    const currentVaultAmount = vaultData.currentAmount || 0;
+    
+    if (currentVaultAmount < amount) {
+      throw new Error("Insufficient funds in vault");
+    }
+    
+    // Get current account balance
+    const accountDocRef = doc(db, 'accounts', accountId);
+    const accountDoc = await getDoc(accountDocRef);
+    
+    if (!accountDoc.exists()) {
+      throw new Error("Account not found");
+    }
+    
+    const accountData = accountDoc.data();
+    const currentBalance = accountData.balance || 0;
+    
+    // Update vault amount
+    await updateDoc(vaultDocRef, {
+      currentAmount: currentVaultAmount - amount,
+    });
+    
+    // Update account balance
+    await updateDoc(accountDocRef, {
+      balance: currentBalance + amount,
+    });
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error withdrawing money from vault:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Gets the total amount allocated to savings vaults for an account.
+ * @param {string} accountId - The ID of the account.
+ * @returns {Promise<{success: boolean, totalAllocated?: number, error?: any}>}
+ */
+export const getTotalAllocatedSavings = async (accountId: string) => {
+  try {
+    const vaultsQuery = query(collection(db, 'accounts', accountId, 'vaults'));
+    const vaultsSnapshot = await getDocs(vaultsQuery);
+    
+    let totalAllocated = 0;
+    vaultsSnapshot.forEach((doc) => {
+      const vaultData = doc.data();
+      totalAllocated += vaultData.currentAmount || 0;
+    });
+    
+    return { success: true, totalAllocated };
+  } catch (error: any) {
+    console.error("Error getting total allocated savings:", error);
+    return { success: false, error: error.message };
+  }
+};
 
 export { app, auth, db, storage };
 
