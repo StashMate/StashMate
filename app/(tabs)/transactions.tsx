@@ -15,6 +15,7 @@ interface Transaction {
   name: string;
   amount: number;
   category: string;
+  paymentMethod?: string;
   type: 'income' | 'expense';
   date: Timestamp;
 }
@@ -125,10 +126,13 @@ export default function TransactionsScreen() {
         <View style={styles.transactionDetails}>
           <Text style={styles.transactionName}>{item.name}</Text>
           <Text style={styles.transactionCategory}>{item.category}</Text>
+          {item.type === 'expense' && item.paymentMethod && (
+            <Text style={styles.transactionPaymentMethod}>Paid with: {item.paymentMethod}</Text>
+          )}
         </View>
         <View style={{alignItems: 'flex-end'}}>
           <Text style={[styles.transactionAmount, item.type === 'income' ? styles.income : styles.expense]}>
-            {item.type === 'income' ? '+' : '-'}${item.amount.toFixed(2)}
+            ${item.amount.toFixed(2)}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
             <TouchableOpacity
@@ -167,15 +171,15 @@ export default function TransactionsScreen() {
         />
       </View>
       <View style={styles.summaryContainer}>
-        <View style={styles.summaryItem}>
+        <View style={styles.summaryCard}>
           <Text style={styles.summaryLabel}>Income</Text>
-          <Text style={[styles.summaryAmount, styles.incomeText]}>+${totalIncome.toFixed(2)}</Text>
+          <Text style={[styles.summaryAmount, styles.incomeText]}>${totalIncome.toFixed(2)}</Text>
         </View>
-        <View style={styles.summaryItem}>
+        <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Expenses</Text>
-            <Text style={[styles.summaryAmount, styles.expenseText]}>-${totalExpense.toFixed(2)}</Text>
+            <Text style={[styles.summaryAmount, styles.expenseText]}>${totalExpense.toFixed(2)}</Text>
         </View>
-        <View style={styles.summaryItem}>
+        <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Net Flow</Text>
             <Text style={[styles.summaryAmount, (totalIncome - totalExpense) >= 0 ? styles.incomeText : styles.expenseText]}>
               ${(totalIncome - totalExpense).toFixed(2)}

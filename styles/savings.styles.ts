@@ -44,9 +44,32 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   selectedAccountButtonText: {
     color: '#fff',
+    fontWeight: 'bold',
+  },
+  accountLogo: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+    borderRadius: 12,
+  },
+  addAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  addAccountButtonText: {
+    color: colors.primary,
+    marginLeft: 5,
+    fontWeight: 'bold',
   },
   totalSavingsCard: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.card,
     borderRadius: 15,
     padding: 25,
     alignItems: 'center',
@@ -103,13 +126,45 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   vaultName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: colors.text,
   },
   vaultAmount: {
     fontSize: 14,
     color: colors.secondaryText,
-    marginTop: 2,
+    marginTop: 4,
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: colors.primary,
+  },
+  deadlineText: {
+    fontSize: 12,
+    color: colors.secondaryText,
+    marginTop: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginTop: 6,
+  },
+  dueSoonStatus: {
+    color: colors.warning,
+  },
+  overdueStatus: {
+    color: colors.danger,
+  },
+  vaultActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   newVaultButton: {
     position: 'absolute',
@@ -129,8 +184,87 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   newVaultButtonText: {
     color: '#fff',
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+  emptyVaultsText: {
+    textAlign: 'center',
+    color: colors.secondaryText,
+    marginVertical: 20,
+    fontStyle: 'italic',
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    color: colors.secondaryText,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  linkButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+  },
+  linkButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 10,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    padding: 20,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 20,
+  },
+  input: {
+    width: '100%',
+    backgroundColor: colors.background,
+    color: colors.text,
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  button: {
+    padding: 10,
+    borderRadius: 5,
+    flex: 1,
+    marginHorizontal: 5,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: colors.secondaryText,
+  },
+  saveButton: {
+    backgroundColor: colors.primary,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 }); 

@@ -1,4 +1,3 @@
-import { StyleSheet } from 'react-native';
 
 const tintColorLight = '#2f95dc';
 const tintColorDark = '#fff';
@@ -17,6 +16,7 @@ export const Colors = {
     separator: '#e0e0e0',
     success: '#4caf50',
     danger: '#f44336',
+    warning: '#ffc107',
     link: '#0a7ea4',
     primary: '#0a7ea4',
     border: '#e0e0e0',
@@ -34,6 +34,7 @@ export const Colors = {
     separator: '#333',
     success: '#4caf50',
     danger: '#f44336',
+    warning: '#ffc107',
     link: '#0a7ea4',
     primary: '#0a7ea4',
     border: '#272727',

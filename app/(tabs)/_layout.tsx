@@ -1,6 +1,6 @@
+import { Feather, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { MaterialCommunityIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function TabLayout() {
@@ -44,12 +44,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="goals"
+        name="reports"
         options={{
-          title: 'Goals',
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? 'trophy' : 'trophy-outline'} size={24} color={color} />
-          ),
+          title: 'Reports',
+          tabBarIcon: ({ color }) => <Feather name="bar-chart-2" size={28} color={color} />,
         }}
       />
       <Tabs.Screen

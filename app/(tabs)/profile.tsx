@@ -14,6 +14,13 @@ export default function ProfileScreen() {
     const styles = getProfileStyles(colors);
     const { user } = useUser();
 
+    const getInitials = (name: string) => {
+        if (!name) return '??';
+        const names = name.split(' ');
+        const initials = names.map(n => n[0]).join('');
+        return initials.substring(0, 2).toUpperCase();
+    };
+
     const menuItems = [
         {
           title: 'Account',
@@ -39,20 +46,26 @@ export default function ProfileScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Profile</Text>
+            </View>
             <ScrollView contentContainerStyle={styles.content}>
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Profile</Text>
-                </View>
-                <View style={styles.profileSection}>
-                    <Image
-                        source={{ uri: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }}
-                        style={styles.profileImage}
-                    />
+                <TouchableOpacity style={styles.profileSection} onPress={() => router.push('/editProfile')}>
+                    {user?.photoURL ? (
+                        <Image
+                            source={{ uri: user.photoURL }}
+                            style={styles.profileImage}
+                        />
+                    ) : (
+                        <View style={styles.initialsContainer}>
+                            <Text style={styles.initialsText}>{getInitials(user?.displayName || '')}</Text>
+                        </View>
+                    )}
                     <View style={styles.profileTextContainer}>
-                        <Text style={styles.profileName}>{user?.displayName || 'Your Name'}</Text>
-                        <Text style={styles.profileHandle}>{user?.email || '@username'}</Text>
+                        <Text style={styles.profileHandle}>{user?.email || 'user@example.com'}</Text>
+                        <Text style={styles.bioText}>{user?.bio || 'Tap to add a bio'}</Text>
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 {menuItems.map((section, sectionIndex) => (
                     <View key={sectionIndex} style={styles.card}>

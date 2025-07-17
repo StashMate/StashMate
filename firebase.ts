@@ -227,6 +227,120 @@ export const deleteTransaction = async (transactionId: string) => {
   }
 };
 
+/**
+ * Updates a user's profile information in both Firebase Auth and Firestore.
+ * @param {string} userId - The ID of the user to update.
+ * @param {object} updatedData - The data to update (e.g., { displayName: "New Name" }).
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const updateUserProfile = async (userId: string, updatedData: { displayName?: string; bio?: string; photoURL?: string | null; }) => {
+  try {
+    const user = auth.currentUser;
+    if (user && user.uid === userId) {
+      // Update Firebase Auth profile
+      const authUpdate: { displayName?: string; photoURL?: string } = {};
+      if (updatedData.displayName) {
+        authUpdate.displayName = updatedData.displayName;
+      }
+      if (updatedData.photoURL) {
+        authUpdate.photoURL = updatedData.photoURL;
+      } else if (updatedData.photoURL === null) {
+        authUpdate.photoURL = undefined;
+      }
+
+      if (Object.keys(authUpdate).length > 0) {
+        await updateProfile(user, authUpdate);
+      }
+
+      // Update Firestore user document
+      const userDocRef = doc(db, 'users', userId);
+      await updateDoc(userDocRef, updatedData);
+
+      return { success: true };
+    }
+    throw new Error("User not found or mismatch.");
+  } catch (error: any) {
+    console.error("Error updating profile:", error);
+    return { success: false, error: "Failed to update profile. Please try again." };
+  }
+};
+
+/**
+ * Links a new financial account to the user's profile.
+ * @param {string} userId - The ID of the user linking the account.
+ * @param {object} accountData - The data for the new account.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const linkAccount = async (userId: string, accountData: { accountName: string; accountType: string; balance: number; institution: string; logoUrl: string; }) => {
+  try {
+    await addDoc(collection(db, 'accounts'), {
+      userId,
+      ...accountData,
+      createdAt: serverTimestamp(),
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error linking account:", error);
+    return { success: false, error: "Failed to link account." };
+  }
+};
+
+/**
+ * Adds a new savings vault to a specific account.
+ * @param {string} accountId - The ID of the account to add the vault to.
+ * @param {object} vaultData - The data for the new vault.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const addVault = async (accountId: string, vaultData: { name: string; targetAmount: number; icon: string; deadline: Date; }) => {
+  try {
+    const vaultsCollectionRef = collection(db, 'accounts', accountId, 'vaults');
+    await addDoc(vaultsCollectionRef, {
+      ...vaultData,
+      currentAmount: 0,
+      createdAt: serverTimestamp(),
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error adding vault:", error);
+    return { success: false, error: "Failed to add vault." };
+  }
+};
+
+/**
+ * Updates an existing savings vault.
+ * @param {string} accountId - The ID of the account containing the vault.
+ * @param {string} vaultId - The ID of the vault to update.
+ * @param {object} updatedData - The data to update.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const updateVault = async (accountId: string, vaultId: string, updatedData: any) => {
+  try {
+    const vaultDocRef = doc(db, 'accounts', accountId, 'vaults', vaultId);
+    await updateDoc(vaultDocRef, updatedData);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating vault:", error);
+    return { success: false, error: "Failed to update vault." };
+  }
+};
+
+/**
+ * Deletes a savings vault from an account.
+ * @param {string} accountId - The ID of the account containing the vault.
+ * @param {string} vaultId - The ID of the vault to delete.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const deleteVault = async (accountId: string, vaultId: string) => {
+  try {
+    const vaultDocRef = doc(db, 'accounts', accountId, 'vaults', vaultId);
+    await deleteDoc(vaultDocRef);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting vault:", error);
+    return { success: false, error: "Failed to delete vault." };
+  }
+};
+
 
 export { app, auth, db, storage };
 

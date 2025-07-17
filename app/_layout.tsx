@@ -58,7 +58,6 @@ function RootLayoutNav() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="addGoal" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="addVault" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="addTransaction" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="editTransaction" options={{ presentation: 'modal', headerShown: false }} />
@@ -73,6 +72,7 @@ function RootLayoutNav() {
         <Stack.Screen name="referrals" options={{ headerShown: false }} />
         <Stack.Screen name="privacyAndSecurity" options={{ headerShown: false }} />
         <Stack.Screen name="chatbot" options={{ headerShown: false }} />
+        <Stack.Screen name="editProfile" options={{ presentation: 'modal', headerShown: false }} />
       </Stack>
   );
 }

@@ -72,17 +72,18 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
   },
   summaryContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 15,
-    backgroundColor: colors.card,
-    marginHorizontal: 20,
-    borderRadius: 10,
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginVertical: 10,
+    backgroundColor: colors.background,
   },
-  summaryItem: {
-    alignItems: 'center',
+  summaryCard: {
     flex: 1,
-    paddingHorizontal: 5,
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    padding: 15,
+    alignItems: 'center',
+    marginHorizontal: 5,
   },
   summaryLabel: {
     color: colors.secondaryText,
@@ -93,7 +94,6 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     color: colors.text,
     fontSize: 18,
     fontWeight: 'bold',
-    flexShrink: 1,
   },
   incomeText: {
     color: colors.success,
@@ -148,6 +148,12 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
   transactionCategory: {
     color: colors.secondaryText,
     fontSize: 14,
+    fontStyle: 'italic',
+  },
+  transactionPaymentMethod: {
+    color: colors.secondaryText,
+    fontSize: 12,
+    marginTop: 4,
   },
   transactionAmount: {
     fontSize: 16,

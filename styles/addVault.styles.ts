@@ -44,4 +44,29 @@ export const getAddVaultStyles = (colors: ThemeColors) => StyleSheet.create({
         padding: 15,
         fontSize: 16,
     },
+    iconSelector: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        marginBottom: 20,
+    },
+    iconButton: {
+        width: '22%',
+        aspectRatio: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: colors.separator,
+        marginBottom: 10,
+    },
+    selectedIconButton: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    saveButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
 }); 

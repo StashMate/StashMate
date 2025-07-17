@@ -99,14 +99,14 @@ export default function AddTransactionScreen() {
           
           {type === 'expense' && (
             <>
-              <Text style={styles.label}>Category</Text>
-              <TextInput
-                style={styles.input}
+          <Text style={styles.label}>Category</Text>
+          <TextInput
+            style={styles.input}
                 placeholder="e.g., Food, Bills"
-                placeholderTextColor={colors.secondaryText}
-                value={category}
-                onChangeText={setCategory}
-              />
+            placeholderTextColor={colors.secondaryText}
+            value={category}
+            onChangeText={setCategory}
+          />
 
               <Text style={styles.label}>Payment Method</Text>
               <TextInput
