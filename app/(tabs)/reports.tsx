@@ -2,7 +2,7 @@ import { eachDayOfInterval, eachMonthOfInterval, endOfMonth, endOfWeek, endOfYea
 import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { BarChart, LineChart } from 'react-native-chart-kit';
+import { BarChart, LineChart, ProgressChart } from 'react-native-chart-kit';
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
 import { db } from '../../firebase';
@@ -32,6 +32,7 @@ interface Account {
 }
 
 type TimeRange = 'Weekly' | 'Monthly' | 'Yearly';
+type ChartType = 'trend' | 'savings' | 'progress';
 
 
 export default function ReportsScreen() {
@@ -44,6 +45,7 @@ export default function ReportsScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [timeRange, setTimeRange] = useState<TimeRange>('Monthly');
+    const [chartType, setChartType] = useState<ChartType>('trend');
 
     useEffect(() => {
         if (!user) {
@@ -171,6 +173,118 @@ export default function ReportsScreen() {
         }]
     };
 
+    // Prepare data for Progress Chart
+    const progressChartData = () => {
+        if (accounts.length === 0) return { data: [] };
+        
+        const progressData = accounts.map(account => {
+            const totalVaultProgress = account.vaults.reduce((sum, vault) => {
+                const progress = vault.targetAmount > 0 ? (vault.currentAmount / vault.targetAmount) : 0;
+                return sum + Math.min(progress, 1); // Cap at 100%
+            }, 0);
+            
+            return totalVaultProgress / Math.max(account.vaults.length, 1);
+        });
+
+        return {
+            data: progressData,
+            colors: accounts.map((_, index) => {
+                const colorOptions = [colors.primary, colors.success, colors.warning, colors.danger, colors.link];
+                return colorOptions[index % colorOptions.length];
+            })
+        };
+    };
+
+    const renderChart = () => {
+        switch (chartType) {
+            case 'trend':
+                return (
+                    <View style={styles.chartContainer}>
+                        <Text style={styles.chartTitle}>{timeRange} Financial Trend</Text>
+                        {transactions.length > 0 ? (
+                            <LineChart
+                                data={processTransactionTrendData()}
+                                width={screenWidth - 32}
+                                height={250}
+                                chartConfig={chartConfig}
+                                bezier
+                            />
+                        ) : (
+                            <Text style={styles.emptyStateText}>No transaction data to display trend.</Text>
+                        )}
+                    </View>
+                );
+            
+            case 'savings':
+                return (
+                    <View style={styles.chartContainer}>
+                        <Text style={styles.chartTitle}>Savings Distribution</Text>
+                        {accounts.length > 0 ? (
+                            <BarChart
+                                data={savingsChartData}
+                                width={screenWidth - 32}
+                                height={220}
+                                chartConfig={chartConfig}
+                                yAxisLabel="$"
+                                yAxisSuffix=""
+                                fromZero
+                                showValuesOnTopOfBars
+                            />
+                        ) : (
+                            <Text style={styles.emptyStateText}>No savings data available.</Text>
+                        )}
+                    </View>
+                );
+            
+            case 'progress':
+                return (
+                    <View style={styles.chartContainer}>
+                        <Text style={styles.chartTitle}>Savings Goals Progress</Text>
+                        {accounts.length > 0 ? (
+                            <View style={{ alignItems: 'center', padding: 20 }}>
+                                <ProgressChart
+                                    data={progressChartData()}
+                                    width={screenWidth - 32}
+                                    height={220}
+                                    strokeWidth={16}
+                                    radius={32}
+                                    chartConfig={{
+                                        backgroundColor: colors.card,
+                                        backgroundGradientFrom: colors.card,
+                                        backgroundGradientTo: colors.card,
+                                        color: (opacity = 1) => `rgba(10, 126, 164, ${opacity})`,
+                                        labelColor: (opacity = 1) => colors.text,
+                                    }}
+                                    hideLegend={false}
+                                />
+                                <View style={{ marginTop: 20 }}>
+                                    {accounts.map((account, index) => (
+                                        <View key={account.id} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 5 }}>
+                                            <View style={{
+                                                width: 12,
+                                                height: 12,
+                                                borderRadius: 6,
+                                                backgroundColor: progressChartData().colors[index],
+                                                marginRight: 10
+                                            }} />
+                                            <Text style={{ color: colors.text, fontSize: 14 }}>
+                                                {account.accountName} ({Math.round(progressChartData().data[index] * 100)}%)
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        ) : (
+                            <Text style={styles.emptyStateText}>No savings goals to track.</Text>
+                        )}
+                    </View>
+                );
+            
+            default:
+                return null;
+        }
+    };
+
     if (loading) {
         return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, justifyContent: 'center' }} />;
     }
@@ -203,37 +317,25 @@ export default function ReportsScreen() {
                 ))}
             </View>
 
-            <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>{timeRange} Financial Trend</Text>
-                {transactions.length > 0 ? (
-                    <LineChart
-                        data={processTransactionTrendData()}
-                        width={screenWidth - 32}
-                        height={250}
-                        chartConfig={chartConfig}
-                        bezier
-                    />
-                ) : (
-                    <Text style={styles.emptyStateText}>No transaction data to display trend.</Text>
-                )}
+            <View style={styles.filterContainer}>
+                {([
+                    { key: 'trend', label: 'Trend' },
+                    { key: 'savings', label: 'Savings' },
+                    { key: 'progress', label: 'Progress' }
+                ] as { key: ChartType; label: string }[]).map(chart => (
+                    <TouchableOpacity
+                        key={chart.key}
+                        style={[styles.filterButton, chartType === chart.key && styles.activeFilterButton]}
+                        onPress={() => setChartType(chart.key)}
+                    >
+                        <Text style={[styles.filterButtonText, chartType === chart.key && styles.activeFilterButtonText]}>
+                            {chart.label}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
             </View>
-            <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>Savings Distribution</Text>
-                {accounts.length > 0 ? (
-                    <BarChart
-                        data={savingsChartData}
-                        width={screenWidth - 32}
-                        height={220}
-                        chartConfig={chartConfig}
-                        yAxisLabel="$"
-                        yAxisSuffix=""
-                        fromZero
-                        showValuesOnTopOfBars
-                    />
-                ) : (
-                    <Text style={styles.emptyStateText}>No savings data available.</Text>
-                )}
-            </View>
+
+            {renderChart()}
         </ScrollView>
     );
 } 

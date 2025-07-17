@@ -47,15 +47,18 @@ function RootLayoutNav() {
   
   useEffect(() => {
     const inAuthGroup = segments[0] === '(auth)';
+    const isOnWelcome = segments.length === 0 || segments[0] === 'index';
+    
     if (user && inAuthGroup) {
       router.replace('/(tabs)/dashboard');
-    } else if (!user && !inAuthGroup) {
-      router.replace('/login');
+    } else if (!user && !inAuthGroup && !isOnWelcome) {
+      router.replace('/');
     }
   }, [user, segments, router]);
 
   return (
       <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="addVault" options={{ presentation: 'modal', headerShown: false }} />

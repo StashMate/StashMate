@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { collection, doc, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import React, { ComponentProps, useEffect, useState } from 'react';
@@ -13,6 +14,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
 import { financialQuotes } from '../../data/quotes';
@@ -55,9 +57,51 @@ export default function DashboardScreen() {
   const [budget, setBudget] = useState({ current: 600, target: 1000 });
   const [isBudgetModalVisible, setBudgetModalVisible] = useState(false);
   const [tempBudget, setTempBudget] = useState(budget);
+  const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
+
+  // Animation values for welcome message
+  const welcomeOpacity = useSharedValue(0);
+  const welcomeScale = useSharedValue(0.8);
+
+  const welcomeAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: welcomeOpacity.value,
+      transform: [{ scale: welcomeScale.value }],
+    };
+  });
 
   useEffect(() => {
     if (!user) return;
+
+    // Show welcome message for new sessions
+    const checkWelcomeMessage = async () => {
+      try {
+        const hasShownWelcome = await AsyncStorage.getItem('hasShownWelcome');
+        if (!hasShownWelcome) {
+          setShowWelcomeMessage(true);
+          welcomeOpacity.value = withTiming(1, { duration: 600 });
+          welcomeScale.value = withSpring(1, { damping: 15 });
+          
+          // Hide welcome message after 3 seconds
+          setTimeout(() => {
+            welcomeOpacity.value = withTiming(0, { duration: 400 });
+            welcomeScale.value = withTiming(0.8, { duration: 400 });
+            setTimeout(async () => {
+              setShowWelcomeMessage(false);
+              try {
+                await AsyncStorage.setItem('hasShownWelcome', 'true');
+              } catch (e) {
+                console.log('Error saving welcome state:', e);
+              }
+            }, 400);
+          }, 3000);
+        }
+      } catch (e) {
+        console.log('Error checking welcome state:', e);
+      }
+    };
+
+    checkWelcomeMessage();
 
     // Fetch user data for streak
     const userDocRef = doc(db, 'users', user.uid);
@@ -109,8 +153,66 @@ export default function DashboardScreen() {
     );
   }
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  const getUserName = () => {
+    if (user?.displayName) return user.displayName.split(' ')[0];
+    if (user?.email) return user.email.split('@')[0];
+    return 'there';
+  };
+
   return (
     <SafeAreaView style={dashboardStyles.container}>
+      {showWelcomeMessage && (
+        <Animated.View style={[{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+        }, welcomeAnimatedStyle]}>
+          <View style={{
+            backgroundColor: colors.card,
+            padding: 30,
+            borderRadius: 20,
+            alignItems: 'center',
+            marginHorizontal: 40,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8,
+          }}>
+            <Ionicons name="checkmark-circle" size={60} color={colors.success} />
+            <Text style={{
+              fontSize: 24,
+              fontWeight: 'bold',
+              color: colors.text,
+              marginTop: 15,
+              textAlign: 'center',
+            }}>
+              {getGreeting()}, {getUserName()}!
+            </Text>
+            <Text style={{
+              fontSize: 16,
+              color: colors.secondaryText,
+              marginTop: 8,
+              textAlign: 'center',
+            }}>
+              Welcome back to StashMate
+            </Text>
+          </View>
+        </Animated.View>
+      )}
       <ScrollView>
         <View style={dashboardStyles.header}>
           <Image
