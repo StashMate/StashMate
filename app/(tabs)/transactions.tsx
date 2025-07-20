@@ -18,6 +18,7 @@ interface Transaction {
   paymentMethod?: string;
   type: 'income' | 'expense';
   date: Timestamp;
+  status?: 'completed' | 'pending' | 'scheduled';
 }
 
 export default function TransactionsScreen() {
@@ -30,6 +31,7 @@ export default function TransactionsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -64,6 +66,9 @@ export default function TransactionsScreen() {
     if (filter !== 'All') {
       filtered = filtered.filter(t => t.type.toLowerCase() === filter.toLowerCase());
     }
+    if (statusFilter !== 'All') {
+      filtered = filtered.filter(t => (t.status || 'completed') === statusFilter.toLowerCase());
+    }
     if (searchQuery) {
       filtered = filtered.filter(t => 
         t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -71,7 +76,7 @@ export default function TransactionsScreen() {
       );
     }
     return filtered;
-  }, [filter, searchQuery, transactions]);
+  }, [filter, statusFilter, searchQuery, transactions]);
 
   const groupedTransactions = useMemo(() => filteredTransactions.reduce((acc, tx) => {
     if (!tx.date) {
@@ -124,7 +129,27 @@ export default function TransactionsScreen() {
           <MaterialCommunityIcons name={"bank-transfer"} size={24} color={colors.primary} />
         </View>
         <View style={styles.transactionDetails}>
-          <Text style={styles.transactionName}>{item.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.transactionName}>{item.name}</Text>
+            {item.status && item.status !== 'completed' && (
+              <View style={{
+                marginLeft: 8,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 8,
+                backgroundColor: item.status === 'pending' ? '#FFA726' : '#42A5F5'
+              }}>
+                <Text style={{
+                  fontSize: 10,
+                  color: 'white',
+                  fontWeight: '600',
+                  textTransform: 'uppercase'
+                }}>
+                  {item.status}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.transactionCategory}>{item.category}</Text>
           {item.type === 'expense' && item.paymentMethod && (
             <Text style={styles.transactionPaymentMethod}>Paid with: {item.paymentMethod}</Text>
@@ -195,6 +220,23 @@ export default function TransactionsScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={[styles.filterButton, filter === 'Expense' && styles.activeFilterButton]} onPress={() => setFilter('Expense')}>
           <Text style={[styles.filterText, filter === 'Expense' && styles.activeFilterText]}>Expenses</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* Status Filter */}
+      <View style={[styles.filtersContainer, { marginTop: 8 }]}>
+        <Text style={{ fontSize: 12, color: colors.secondaryText, marginRight: 8 }}>Status:</Text>
+        <TouchableOpacity style={[styles.filterButton, statusFilter === 'All' && styles.activeFilterButton]} onPress={() => setStatusFilter('All')}>
+          <Text style={[styles.filterText, statusFilter === 'All' && styles.activeFilterText]}>All</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.filterButton, statusFilter === 'Completed' && styles.activeFilterButton]} onPress={() => setStatusFilter('Completed')}>
+          <Text style={[styles.filterText, statusFilter === 'Completed' && styles.activeFilterText]}>Completed</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.filterButton, statusFilter === 'Pending' && styles.activeFilterButton]} onPress={() => setStatusFilter('Pending')}>
+          <Text style={[styles.filterText, statusFilter === 'Pending' && styles.activeFilterText]}>Pending</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.filterButton, statusFilter === 'Scheduled' && styles.activeFilterButton]} onPress={() => setStatusFilter('Scheduled')}>
+          <Text style={[styles.filterText, statusFilter === 'Scheduled' && styles.activeFilterText]}>Scheduled</Text>
         </TouchableOpacity>
       </View>
     </>

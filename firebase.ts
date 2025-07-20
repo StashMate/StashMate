@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { addDoc, collection, deleteDoc, doc, getDoc, getFirestore, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getFirestore, serverTimestamp, setDoc, updateDoc, getDocs, query, where } from "firebase/firestore";
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -179,13 +179,40 @@ export const signInWithGoogle = async (id_token: string) => {
  * @param {object} transactionData - The transaction data.
  * @returns {Promise<{success: boolean, error?: any}>}
  */
-export const addTransaction = async (userId: string, transactionData: { name: string; amount: number; category: string; type: 'income' | 'expense' }) => {
+export const addTransaction = async (
+  userId: string, 
+  transactionData: { 
+    name: string; 
+    amount: number; 
+    category: string; 
+    type: 'income' | 'expense';
+    date?: Date;
+    status?: 'completed' | 'pending' | 'scheduled';
+    paymentMethod?: string;
+  }
+) => {
   try {
     const transactionsCollectionRef = collection(db, 'transactions');
+    
+    // Determine transaction status based on date
+    const transactionDate = transactionData.date || new Date();
+    const now = new Date();
+    let status = transactionData.status;
+    
+    if (!status) {
+      if (transactionDate > now) {
+        status = 'scheduled';
+      } else {
+        status = 'completed';
+      }
+    }
+    
     await addDoc(transactionsCollectionRef, {
       ...transactionData,
       userId: userId,
-      date: serverTimestamp(), // Use server timestamp for consistency
+      date: transactionDate,
+      status: status,
+      createdAt: serverTimestamp(), // Track when the transaction was created
     });
     return { success: true };
   } catch (error: any) {
@@ -338,6 +365,175 @@ export const deleteVault = async (accountId: string, vaultId: string) => {
   } catch (error: any) {
     console.error("Error deleting vault:", error);
     return { success: false, error: "Failed to delete vault." };
+  }
+};
+
+/**
+ * Calculates the net balance for a user across all linked accounts and transactions.
+ * Net Balance = (Initial Account Balances + All Income) - All Expenses
+ * 
+ * @param {string} userId - The ID of the user
+ * @param {boolean} includePending - Whether to include pending/future transactions (default: false)
+ * @returns {Promise<{success: boolean, netBalance?: number, breakdown?: object, error?: any}>}
+ */
+export const calculateNetBalance = async (userId: string, includePending: boolean = false) => {
+  try {
+    // Fetch all user accounts
+    const accountsSnapshot = await getDocs(
+      query(collection(db, 'accounts'), where('userId', '==', userId))
+    );
+    
+    // Calculate total initial account balances
+    let totalAccountBalance = 0;
+    const accountBalances: Array<{accountName: string, balance: number, institution: string}> = [];
+    
+    accountsSnapshot.docs.forEach(doc => {
+      const accountData = doc.data();
+      const balance = accountData.balance || 0;
+      totalAccountBalance += balance;
+      accountBalances.push({
+        accountName: accountData.accountName || 'Unknown Account',
+        balance: balance,
+        institution: accountData.institution || 'Unknown Institution'
+      });
+    });
+
+    // Fetch all user transactions
+    let transactionsQuery = query(
+      collection(db, 'transactions'),
+      where('userId', '==', userId)
+    );
+
+    // Add filter for pending/future transactions if not including them
+    if (!includePending) {
+      // Only include completed transactions
+      transactionsQuery = query(
+        transactionsQuery,
+        where('status', '==', 'completed')
+      );
+    }
+
+    const transactionsSnapshot = await getDocs(transactionsQuery);
+    
+    // Calculate income and expenses
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    const incomeTransactions: Array<{name: string, amount: number, date: any}> = [];
+    const expenseTransactions: Array<{name: string, amount: number, date: any}> = [];
+    
+    transactionsSnapshot.docs.forEach(doc => {
+      const transaction = doc.data();
+      const amount = transaction.amount || 0;
+      const transactionType = transaction.type;
+      
+      // Skip transactions with invalid amounts
+      if (isNaN(amount) || amount < 0) return;
+      
+      if (transactionType === 'income') {
+        totalIncome += amount;
+        incomeTransactions.push({
+          name: transaction.name || 'Unknown Income',
+          amount: amount,
+          date: transaction.date
+        });
+      } else if (transactionType === 'expense') {
+        totalExpenses += amount;
+        expenseTransactions.push({
+          name: transaction.name || 'Unknown Expense',
+          amount: amount,
+          date: transaction.date
+        });
+      }
+    });
+
+    // Calculate net balance
+    // Net Balance = Initial Account Balances + Total Income - Total Expenses
+    const netBalance = totalAccountBalance + totalIncome - totalExpenses;
+    
+    // Prepare detailed breakdown
+    const breakdown = {
+      totalAccountBalance,
+      totalIncome,
+      totalExpenses,
+      netBalance,
+      isNegative: netBalance < 0,
+      accountBalances,
+      incomeTransactions,
+      expenseTransactions,
+      transactionCounts: {
+        income: incomeTransactions.length,
+        expenses: expenseTransactions.length,
+        total: incomeTransactions.length + expenseTransactions.length
+      }
+    };
+
+    return {
+      success: true,
+      netBalance,
+      breakdown
+    };
+
+  } catch (error: any) {
+    console.error("Error calculating net balance:", error);
+    return {
+      success: false,
+      error: "Failed to calculate net balance. Please try again."
+    };
+  }
+};
+
+/**
+ * Formats a balance value with proper negative handling and currency display.
+ * 
+ * @param {number} balance - The balance amount to format
+ * @param {boolean} showCurrency - Whether to show currency symbol (default: true)
+ * @returns {string} Formatted balance string
+ */
+export const formatBalance = (balance: number, showCurrency: boolean = true): string => {
+  const isNegative = balance < 0;
+  const absoluteBalance = Math.abs(balance);
+  const formattedAmount = absoluteBalance.toLocaleString('en-US', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  });
+  
+  const currencySymbol = showCurrency ? '$' : '';
+  
+  if (isNegative) {
+    return `-${currencySymbol}${formattedAmount}`;
+  }
+  
+  return `${currencySymbol}${formattedAmount}`;
+};
+
+/**
+ * Gets a user-friendly status message for net balance.
+ * 
+ * @param {number} netBalance - The net balance amount
+ * @returns {object} Status object with message and color indicator
+ */
+export const getNetBalanceStatus = (netBalance: number) => {
+  if (netBalance < 0) {
+    return {
+      status: 'negative',
+      message: 'You have more expenses than income and initial balance',
+      color: '#FF6B6B', // Red color for negative
+      icon: 'trending-down' as const
+    };
+  } else if (netBalance === 0) {
+    return {
+      status: 'neutral',
+      message: 'Your income and expenses are balanced',
+      color: '#FFA726', // Orange color for neutral
+      icon: 'remove' as const
+    };
+  } else {
+    return {
+      status: 'positive',
+      message: 'You have a positive net balance',
+      color: '#4CAF50', // Green color for positive
+      icon: 'trending-up' as const
+    };
   }
 };
 

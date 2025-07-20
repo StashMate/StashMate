@@ -16,7 +16,7 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
 import { financialQuotes } from '../../data/quotes';
-import { db } from '../../firebase';
+import { db, calculateNetBalance, formatBalance, getNetBalanceStatus } from '../../firebase';
 import { getChatbotStyles } from '../../styles/chatbot.styles';
 import { getDashboardStyles } from '../../styles/dashboard.styles';
 
@@ -29,11 +29,29 @@ interface Transaction {
   category: string;
   type: 'income' | 'expense';
   date: Timestamp;
+  status?: 'completed' | 'pending' | 'scheduled';
+  paymentMethod?: string;
 }
 
 interface UserData {
   streak?: number;
   // Add other user properties as needed
+}
+
+interface NetBalanceData {
+  netBalance: number;
+  breakdown: {
+    totalAccountBalance: number;
+    totalIncome: number;
+    totalExpenses: number;
+    isNegative: boolean;
+    accountBalances: Array<{accountName: string, balance: number, institution: string}>;
+    transactionCounts: {
+      income: number;
+      expenses: number;
+      total: number;
+    };
+  };
 }
 
 type Quote = {
@@ -55,6 +73,11 @@ export default function DashboardScreen() {
   const [budget, setBudget] = useState({ current: 600, target: 1000 });
   const [isBudgetModalVisible, setBudgetModalVisible] = useState(false);
   const [tempBudget, setTempBudget] = useState(budget);
+  
+  // Net balance state
+  const [netBalanceData, setNetBalanceData] = useState<NetBalanceData | null>(null);
+  const [netBalanceLoading, setNetBalanceLoading] = useState(true);
+  const [includePendingTransactions, setIncludePendingTransactions] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -86,6 +109,55 @@ export default function DashboardScreen() {
       unsubscribeTransactions();
     };
   }, [user]);
+
+  // Calculate net balance whenever user or pending transaction preference changes
+  useEffect(() => {
+    if (!user) return;
+
+    const calculateBalance = async () => {
+      setNetBalanceLoading(true);
+      try {
+        const result = await calculateNetBalance(user.uid, includePendingTransactions);
+        if (result.success && result.breakdown) {
+          setNetBalanceData({
+            netBalance: result.netBalance || 0,
+            breakdown: result.breakdown
+          });
+        } else {
+          console.error('Failed to calculate net balance:', result.error);
+          // Set default values if calculation fails
+          setNetBalanceData({
+            netBalance: 0,
+            breakdown: {
+              totalAccountBalance: 0,
+              totalIncome: 0,
+              totalExpenses: 0,
+              isNegative: false,
+              accountBalances: [],
+              transactionCounts: { income: 0, expenses: 0, total: 0 }
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error calculating net balance:', error);
+        setNetBalanceData({
+          netBalance: 0,
+          breakdown: {
+            totalAccountBalance: 0,
+            totalIncome: 0,
+            totalExpenses: 0,
+            isNegative: false,
+            accountBalances: [],
+            transactionCounts: { income: 0, expenses: 0, total: 0 }
+          }
+        });
+      } finally {
+        setNetBalanceLoading(false);
+      }
+    };
+
+    calculateBalance();
+  }, [user, includePendingTransactions]);
 
   const handleSaveBudget = () => {
     setBudget(tempBudget);
@@ -124,8 +196,68 @@ export default function DashboardScreen() {
         </View>
 
         <View style={dashboardStyles.card}>
-            <Text style={dashboardStyles.title}>Net Balance</Text>
-            <Text style={dashboardStyles.balance}>$11,675.67</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={dashboardStyles.title}>Net Balance</Text>
+              <TouchableOpacity 
+                onPress={() => setIncludePendingTransactions(!includePendingTransactions)}
+                style={{ 
+                  padding: 6, 
+                  borderRadius: 4, 
+                  backgroundColor: includePendingTransactions ? colors.primary : colors.surface 
+                }}
+              >
+                <Text style={{ 
+                  fontSize: 12, 
+                  color: includePendingTransactions ? colors.surface : colors.primary 
+                }}>
+                  {includePendingTransactions ? 'All' : 'Current'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            {netBalanceLoading ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[dashboardStyles.balance, { marginLeft: 8 }]}>Calculating...</Text>
+              </View>
+            ) : netBalanceData ? (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons 
+                    name={getNetBalanceStatus(netBalanceData.netBalance).icon} 
+                    size={24} 
+                    color={getNetBalanceStatus(netBalanceData.netBalance).color} 
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={[
+                    dashboardStyles.balance, 
+                    { color: getNetBalanceStatus(netBalanceData.netBalance).color }
+                  ]}>
+                    {formatBalance(netBalanceData.netBalance)}
+                  </Text>
+                </View>
+                
+                {/* Balance breakdown */}
+                <View style={{ marginTop: 12, opacity: 0.8 }}>
+                  <Text style={{ fontSize: 12, color: colors.secondaryText, marginBottom: 4 }}>
+                    Initial Balance: {formatBalance(netBalanceData.breakdown.totalAccountBalance)}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: colors.secondaryText, marginBottom: 4 }}>
+                    + Income: {formatBalance(netBalanceData.breakdown.totalIncome)}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: colors.secondaryText, marginBottom: 4 }}>
+                    - Expenses: {formatBalance(netBalanceData.breakdown.totalExpenses)}
+                  </Text>
+                  {netBalanceData.breakdown.isNegative && (
+                    <Text style={{ fontSize: 11, color: '#FF6B6B', marginTop: 4, fontStyle: 'italic' }}>
+                      ⚠️ {getNetBalanceStatus(netBalanceData.netBalance).message}
+                    </Text>
+                  )}
+                </View>
+              </>
+            ) : (
+              <Text style={dashboardStyles.balance}>$0.00</Text>
+            )}
         </View>
 
         <View style={dashboardStyles.summaryCardsContainer}>
