@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { addDoc, collection, deleteDoc, doc, getDoc, getFirestore, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getFirestore, serverTimestamp, setDoc, updateDoc, query, getDocs, Timestamp, where } from "firebase/firestore";
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -339,6 +339,138 @@ export const deleteVault = async (accountId: string, vaultId: string) => {
     console.error("Error deleting vault:", error);
     return { success: false, error: "Failed to delete vault." };
   }
+};
+
+/**
+ * Gets all accounts for a specific user.
+ * @param {string} userId - The ID of the user.
+ * @returns {Promise<{success: boolean, accounts?: any[], error?: any}>}
+ */
+export const getUserAccounts = async (userId: string) => {
+  try {
+    const accountsQuery = query(collection(db, 'accounts'), where('userId', '==', userId));
+    const snapshot = await getDocs(accountsQuery);
+    const accounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return { success: true, accounts };
+  } catch (error: any) {
+    console.error("Error fetching accounts:", error);
+    return { success: false, error: "Failed to fetch accounts." };
+  }
+};
+
+/**
+ * Adds a new transaction with account association and recurring capability.
+ * @param {string} userId - The ID of the user adding the transaction.
+ * @param {object} transactionData - The transaction data.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const addTransactionWithAccount = async (userId: string, transactionData: { 
+  name: string; 
+  amount: number; 
+  category: string; 
+  type: 'income' | 'expense';
+  accountId?: string;
+  paymentMethod?: string;
+  isRecurring?: boolean;
+  recurringFrequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  nextDueDate?: Date;
+}) => {
+  try {
+    const transactionsCollectionRef = collection(db, 'transactions');
+    await addDoc(transactionsCollectionRef, {
+      ...transactionData,
+      userId: userId,
+      date: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error adding transaction:", error);
+    return { success: false, error: "Failed to add transaction. Please try again." };
+  }
+};
+
+/**
+ * Creates recurring transaction instances for due dates.
+ * @param {string} userId - The ID of the user.
+ * @returns {Promise<{success: boolean, created?: number, error?: any}>}
+ */
+export const createDueRecurringTransactions = async (userId: string) => {
+  try {
+    const now = new Date();
+    const recurringQuery = query(
+      collection(db, 'transactions'),
+      where('userId', '==', userId),
+      where('isRecurring', '==', true)
+    );
+    
+    const snapshot = await getDocs(recurringQuery);
+    let createdCount = 0;
+    
+    for (const docSnapshot of snapshot.docs) {
+      const transaction = { id: docSnapshot.id, ...docSnapshot.data() };
+      const nextDueDate = transaction.nextDueDate?.toDate();
+      
+      if (nextDueDate && nextDueDate <= now) {
+        // Create new transaction instance
+        const newTransaction = {
+          ...transaction,
+          date: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          isRecurring: false, // The instance is not recurring
+          parentRecurringId: transaction.id, // Reference to the recurring template
+        };
+        
+        // Remove fields that shouldn't be copied to instances
+        delete newTransaction.id;
+        delete newTransaction.nextDueDate;
+        
+        await addDoc(collection(db, 'transactions'), newTransaction);
+        
+        // Update the next due date for the recurring transaction
+        const nextDue = calculateNextDueDate(nextDueDate, transaction.recurringFrequency);
+        await updateDoc(doc(db, 'transactions', transaction.id), {
+          nextDueDate: Timestamp.fromDate(nextDue)
+        });
+        
+        createdCount++;
+      }
+    }
+    
+    return { success: true, created: createdCount };
+  } catch (error: any) {
+    console.error("Error creating recurring transactions:", error);
+    return { success: false, error: "Failed to create recurring transactions." };
+  }
+};
+
+/**
+ * Helper function to calculate the next due date based on frequency.
+ * @param {Date} currentDue - The current due date.
+ * @param {string} frequency - The recurring frequency.
+ * @returns {Date} The next due date.
+ */
+const calculateNextDueDate = (currentDue: Date, frequency: string): Date => {
+  const nextDue = new Date(currentDue);
+  
+  switch (frequency) {
+    case 'daily':
+      nextDue.setDate(nextDue.getDate() + 1);
+      break;
+    case 'weekly':
+      nextDue.setDate(nextDue.getDate() + 7);
+      break;
+    case 'monthly':
+      nextDue.setMonth(nextDue.getMonth() + 1);
+      break;
+    case 'yearly':
+      nextDue.setFullYear(nextDue.getFullYear() + 1);
+      break;
+    default:
+      nextDue.setMonth(nextDue.getMonth() + 1); // Default to monthly
+  }
+  
+  return nextDue;
 };
 
 

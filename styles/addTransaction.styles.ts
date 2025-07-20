@@ -87,4 +87,77 @@ export const getAddTransactionStyles = (colors: ThemeColors) => StyleSheet.creat
         fontSize: 18,
         fontWeight: 'bold',
     },
+    accountSelector: {
+        marginTop: 10,
+        marginBottom: 10,
+    },
+    accountButton: {
+        backgroundColor: colors.card,
+        borderRadius: 20,
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+        marginRight: 10,
+        borderWidth: 2,
+        borderColor: 'transparent',
+    },
+    selectedAccountButton: {
+        backgroundColor: colors.primary + '20',
+        borderColor: colors.primary,
+    },
+    accountButtonText: {
+        color: colors.text,
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    selectedAccountButtonText: {
+        color: colors.primary,
+        fontWeight: '600',
+    },
+    recurringContainer: {
+        marginTop: 20,
+        padding: 15,
+        backgroundColor: colors.card,
+        borderRadius: 10,
+    },
+    recurringHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    sublabel: {
+        fontSize: 14,
+        color: colors.secondaryText,
+        marginBottom: 10,
+        marginTop: 10,
+    },
+    frequencySelector: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+    },
+    frequencyButton: {
+        backgroundColor: colors.iconBackground,
+        borderRadius: 20,
+        paddingHorizontal: 15,
+        paddingVertical: 8,
+        marginBottom: 10,
+        minWidth: '22%',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: 'transparent',
+    },
+    activeFrequencyButton: {
+        backgroundColor: colors.primary + '20',
+        borderColor: colors.primary,
+    },
+    frequencyButtonText: {
+        color: colors.text,
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    activeFrequencyText: {
+        color: colors.primary,
+        fontWeight: '600',
+    },
 }); 

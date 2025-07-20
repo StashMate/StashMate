@@ -2,10 +2,10 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { collection, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import React, { ComponentProps, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, SafeAreaView, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
-import { db, deleteTransaction } from '../../firebase';
+import { db, deleteTransaction, createDueRecurringTransactions } from '../../firebase';
 import { getTransactionsStyles } from '../../styles/transactions.styles';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -18,6 +18,19 @@ interface Transaction {
   paymentMethod?: string;
   type: 'income' | 'expense';
   date: Timestamp;
+  accountId?: string;
+  isRecurring?: boolean;
+  recurringFrequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  parentRecurringId?: string;
+  nextDueDate?: Timestamp;
+}
+
+interface Account {
+  id: string;
+  accountName: string;
+  institution: string;
+  logoUrl: string;
+  balance: number;
 }
 
 export default function TransactionsScreen() {
@@ -27,21 +40,66 @@ export default function TransactionsScreen() {
   const router = useRouter();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAccountSelector, setShowAccountSelector] = useState(false);
+
+  // Fetch accounts
+  useEffect(() => {
+    if (!user) return;
+
+    const accountsQuery = query(collection(db, 'accounts'), where('userId', '==', user.uid));
+    const unsubscribe = onSnapshot(accountsQuery, (snapshot) => {
+      const fetchedAccounts: Account[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Account));
+      setAccounts(fetchedAccounts);
+      if (fetchedAccounts.length > 0 && !selectedAccount) {
+        setSelectedAccount(fetchedAccounts[0]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Create due recurring transactions on component mount
+  useEffect(() => {
+    if (!user) return;
+    
+    const createRecurringTransactions = async () => {
+      try {
+        await createDueRecurringTransactions(user.uid);
+      } catch (error) {
+        console.error('Error creating recurring transactions:', error);
+      }
+    };
+
+    createRecurringTransactions();
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
     setLoading(true);
     setError(null);
 
-    const q = query(
-      collection(db, 'transactions'), 
-      where('userId', '==', user.uid),
-      orderBy('date', 'desc')
-    );
+    // Build query based on selected account
+    let q;
+    if (selectedAccount) {
+      q = query(
+        collection(db, 'transactions'), 
+        where('userId', '==', user.uid),
+        where('accountId', '==', selectedAccount.id),
+        orderBy('date', 'desc')
+      );
+    } else {
+      q = query(
+        collection(db, 'transactions'), 
+        where('userId', '==', user.uid),
+        orderBy('date', 'desc')
+      );
+    }
 
     const unsubscribe = onSnapshot(q, 
       (snapshot) => {
@@ -57,7 +115,7 @@ export default function TransactionsScreen() {
     );
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, selectedAccount]);
 
   const filteredTransactions = useMemo(() => {
     let filtered = transactions;
@@ -110,6 +168,16 @@ export default function TransactionsScreen() {
     );
   };
 
+  const getRecurringIcon = (frequency?: string) => {
+    switch (frequency) {
+      case 'daily': return 'calendar-today';
+      case 'weekly': return 'calendar-week';
+      case 'monthly': return 'calendar-month';
+      case 'yearly': return 'calendar-year';
+      default: return 'repeat';
+    }
+  };
+
   const RenderTransactionItem = ({ item }: { item: Transaction }) => (
     <TouchableOpacity
       onPress={() =>
@@ -124,7 +192,26 @@ export default function TransactionsScreen() {
           <MaterialCommunityIcons name={"bank-transfer"} size={24} color={colors.primary} />
         </View>
         <View style={styles.transactionDetails}>
-          <Text style={styles.transactionName}>{item.name}</Text>
+          <View style={styles.transactionNameRow}>
+            <Text style={styles.transactionName}>{item.name}</Text>
+            {item.isRecurring && (
+              <View style={styles.recurringBadge}>
+                <MaterialCommunityIcons 
+                  name={getRecurringIcon(item.recurringFrequency)} 
+                  size={14} 
+                  color={colors.primary} 
+                />
+                <Text style={styles.recurringText}>
+                  {item.recurringFrequency?.charAt(0).toUpperCase() + item.recurringFrequency?.slice(1)}
+                </Text>
+              </View>
+            )}
+            {item.parentRecurringId && (
+              <View style={styles.recurringInstanceBadge}>
+                <MaterialCommunityIcons name="autorenew" size={12} color={colors.secondaryText} />
+              </View>
+            )}
+          </View>
           <Text style={styles.transactionCategory}>{item.category}</Text>
           {item.type === 'expense' && item.paymentMethod && (
             <Text style={styles.transactionPaymentMethod}>Paid with: {item.paymentMethod}</Text>
@@ -155,11 +242,51 @@ export default function TransactionsScreen() {
     </TouchableOpacity>
   );
 
+  const AccountSelector = () => (
+    <View style={styles.accountSelectorContainer}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.accountScrollView}>
+        <TouchableOpacity
+          style={[
+            styles.accountButton,
+            !selectedAccount && styles.selectedAccountButton
+          ]}
+          onPress={() => setSelectedAccount(null)}
+        >
+          <MaterialCommunityIcons name="view-dashboard" size={20} color={colors.primary} />
+          <Text style={[
+            styles.accountButtonText,
+            !selectedAccount && styles.selectedAccountButtonText
+          ]}>All Accounts</Text>
+        </TouchableOpacity>
+        
+        {accounts.map(account => (
+          <TouchableOpacity
+            key={account.id}
+            style={[
+              styles.accountButton,
+              selectedAccount?.id === account.id && styles.selectedAccountButton
+            ]}
+            onPress={() => setSelectedAccount(account)}
+          >
+            <MaterialCommunityIcons name="bank" size={20} color={colors.primary} />
+            <Text style={[
+              styles.accountButtonText,
+              selectedAccount?.id === account.id && styles.selectedAccountButtonText
+            ]}>{account.institution}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
   const ListHeader = () => (
     <>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Transactions</Text>
       </View>
+      
+      {accounts.length > 0 && <AccountSelector />}
+      
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} style={styles.searchIcon} />
         <TextInput 
