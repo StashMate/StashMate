@@ -5,7 +5,7 @@ import { ActivityIndicator, Dimensions, ScrollView, Text, TouchableOpacity, View
 import { BarChart, LineChart } from 'react-native-chart-kit';
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
-import { db } from '../../firebase';
+import { db, getNetbalanceStatus } from '../../firebase';
 import { getReportsStyles } from '../../styles/reports.styles';
 
 

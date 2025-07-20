@@ -16,7 +16,7 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
 import { financialQuotes } from '../../data/quotes';
-import { db } from '../../firebase';
+import { db, getNetbalanceStatus } from '../../firebase';
 import { getChatbotStyles } from '../../styles/chatbot.styles';
 import { getDashboardStyles } from '../../styles/dashboard.styles';
 
@@ -36,6 +36,13 @@ interface UserData {
   // Add other user properties as needed
 }
 
+interface NetBalanceData {
+  netBalance: number;
+  status: string;
+  totalIncome: number;
+  totalExpenses: number;
+}
+
 type Quote = {
   q: string;
   a: string;
@@ -50,6 +57,7 @@ export default function DashboardScreen() {
 
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [netBalanceData, setNetBalanceData] = useState<NetBalanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [budget, setBudget] = useState({ current: 600, target: 1000 });
@@ -79,6 +87,9 @@ export default function DashboardScreen() {
         (doc) => ({ id: doc.id, ...doc.data() } as Transaction)
       );
       setRecentTransactions(fetchedTransactions);
+      
+      // Fetch net balance when transactions change
+      fetchNetBalance();
     });
 
     return () => {
@@ -86,6 +97,24 @@ export default function DashboardScreen() {
       unsubscribeTransactions();
     };
   }, [user]);
+
+  const fetchNetBalance = async () => {
+    if (!user) return;
+    
+    try {
+      const result = await getNetbalanceStatus(user.uid);
+      if (result.success) {
+        setNetBalanceData({
+          netBalance: result.netBalance || 0,
+          status: result.status || 'neutral',
+          totalIncome: result.totalIncome || 0,
+          totalExpenses: result.totalExpenses || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching net balance:', error);
+    }
+  };
 
   const handleSaveBudget = () => {
     setBudget(tempBudget);
@@ -100,6 +129,36 @@ export default function DashboardScreen() {
   useEffect(() => {
     fetchQuote();
   }, []);
+
+  const getBalanceColor = (status: string) => {
+    switch (status) {
+      case 'excellent':
+        return colors.success;
+      case 'positive':
+        return colors.success;
+      case 'neutral':
+        return colors.text;
+      case 'negative':
+        return colors.danger;
+      default:
+        return colors.text;
+    }
+  };
+
+  const getBalanceStatus = (status: string) => {
+    switch (status) {
+      case 'excellent':
+        return 'Excellent! 🎉';
+      case 'positive':
+        return 'Looking good! 👍';
+      case 'neutral':
+        return 'Break even 📊';
+      case 'negative':
+        return 'Need attention ⚠️';
+      default:
+        return '';
+    }
+  };
 
   if (loading) {
     return (
@@ -125,7 +184,17 @@ export default function DashboardScreen() {
 
         <View style={dashboardStyles.card}>
             <Text style={dashboardStyles.title}>Net Balance</Text>
-            <Text style={dashboardStyles.balance}>$11,675.67</Text>
+            <Text style={[
+              dashboardStyles.balance, 
+              { color: netBalanceData ? getBalanceColor(netBalanceData.status) : colors.text }
+            ]}>
+              ${netBalanceData ? netBalanceData.netBalance.toFixed(2) : '0.00'}
+            </Text>
+            {netBalanceData && (
+              <Text style={[dashboardStyles.balanceStatus, { color: colors.secondaryText }]}>
+                {getBalanceStatus(netBalanceData.status)}
+              </Text>
+            )}
         </View>
 
         <View style={dashboardStyles.summaryCardsContainer}>
@@ -157,7 +226,7 @@ export default function DashboardScreen() {
         </View>
 
         <Text style={dashboardStyles.sectionTitle}>Recent Transactions</Text>
-        {recentTransactions.map((item, index) => (
+        {recentTransactions.slice(0, 5).map((item, index) => (
           <TouchableOpacity key={index} style={dashboardStyles.transactionItem} onPress={() => router.push('/(tabs)/transactions')}>
             <View style={dashboardStyles.transactionIcon}>
               <MaterialCommunityIcons name={"bank-transfer"} size={24} color={colors.primary} />
@@ -171,6 +240,10 @@ export default function DashboardScreen() {
             </Text>
           </TouchableOpacity>
         ))}
+
+        {recentTransactions.length === 0 && (
+          <Text style={dashboardStyles.emptyTransactions}>No transactions yet. Add your first transaction!</Text>
+        )}
 
         <Text style={dashboardStyles.sectionTitle}>Savings Overview</Text>
         <TouchableOpacity style={dashboardStyles.transactionItem} onPress={() => router.push('/(tabs)/savings')}>

@@ -43,6 +43,11 @@ export const getDashboardStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 36,
     fontWeight: 'bold',
   },
+  balanceStatus: {
+    fontSize: 14,
+    marginTop: 5,
+    textAlign: 'center',
+  },
   summaryCardsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -139,6 +144,14 @@ export const getDashboardStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   income: {
     color: colors.success,
+  },
+  emptyTransactions: {
+    color: colors.secondaryText,
+    fontSize: 16,
+    textAlign: 'center',
+    marginHorizontal: 20,
+    marginVertical: 20,
+    fontStyle: 'italic',
   },
   savingsAmount: {
     fontSize: 16,
