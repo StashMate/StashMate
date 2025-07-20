@@ -473,6 +473,60 @@ const calculateNextDueDate = (currentDue: Date, frequency: string): Date => {
   return nextDue;
 };
 
+/**
+ * Gets the net balance status for a user across all accounts and transactions.
+ * @param {string} userId - The ID of the user.
+ * @returns {Promise<{success: boolean, netBalance?: number, status?: string, error?: any}>}
+ */
+export const getNetbalanceStatus = async (userId: string) => {
+  try {
+    // Get all transactions for the user
+    const transactionsQuery = query(
+      collection(db, 'transactions'),
+      where('userId', '==', userId)
+    );
+    const transactionsSnapshot = await getDocs(transactionsQuery);
+    
+    // Calculate net balance from transactions
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    
+    transactionsSnapshot.docs.forEach(doc => {
+      const transaction = doc.data();
+      if (transaction.type === 'income') {
+        totalIncome += transaction.amount || 0;
+      } else if (transaction.type === 'expense') {
+        totalExpenses += transaction.amount || 0;
+      }
+    });
+    
+    const netBalance = totalIncome - totalExpenses;
+    
+    // Determine status
+    let status: string;
+    if (netBalance > 1000) {
+      status = 'excellent';
+    } else if (netBalance > 0) {
+      status = 'positive';
+    } else if (netBalance === 0) {
+      status = 'neutral';
+    } else {
+      status = 'negative';
+    }
+    
+    return { 
+      success: true, 
+      netBalance, 
+      status,
+      totalIncome,
+      totalExpenses
+    };
+  } catch (error: any) {
+    console.error("Error calculating net balance:", error);
+    return { success: false, error: "Failed to calculate net balance." };
+  }
+};
+
 
 export { app, auth, db, storage };
 
