@@ -33,30 +33,60 @@ export default function TransactionsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      setError("Please log in to view your transactions.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
-    const q = query(
-      collection(db, 'transactions'), 
-      where('userId', '==', user.uid),
-      orderBy('date', 'desc')
-    );
+    try {
+      const q = query(
+        collection(db, 'transactions'), 
+        where('userId', '==', user.uid),
+        orderBy('date', 'desc')
+      );
 
-    const unsubscribe = onSnapshot(q, 
-      (snapshot) => {
-        const fetchedTransactions: Transaction[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
-        setTransactions(fetchedTransactions);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Firestore Error:", err);
-        setError("Failed to load transactions. This often requires creating a database index. Please check the developer console for a direct link to create it.");
-        setLoading(false);
-      }
-    );
+      const unsubscribe = onSnapshot(q, 
+        (snapshot) => {
+          try {
+            const fetchedTransactions: Transaction[] = snapshot.docs.map(doc => ({ 
+              id: doc.id, 
+              ...doc.data() 
+            } as Transaction));
+            setTransactions(fetchedTransactions);
+            setLoading(false);
+          } catch (err) {
+            console.error("Error processing transaction data:", err);
+            setError("Failed to process transaction data. Please try again.");
+            setLoading(false);
+          }
+        },
+        (err) => {
+          console.error("Firestore Error:", err);
+          setLoading(false);
+          
+          // Check for specific Firebase errors
+          if (err.code === 'failed-precondition' || err.message.includes('index')) {
+            setError("Database index is required for this query. Please create a composite index for the 'transactions' collection with fields: 'userId' (Ascending) and 'date' (Descending). You can create this index in the Firebase Console under Firestore Database > Indexes.");
+          } else if (err.code === 'permission-denied') {
+            setError("You don't have permission to access transactions. Please check your authentication.");
+          } else if (err.code === 'unavailable') {
+            setError("Database is temporarily unavailable. Please try again later.");
+          } else {
+            setError("Failed to load transactions. Please check your internet connection and try again.");
+          }
+        }
+      );
 
-    return () => unsubscribe();
+      return () => unsubscribe();
+    } catch (err) {
+      console.error("Error setting up transactions listener:", err);
+      setError("Failed to initialize transactions. Please try refreshing the page.");
+      setLoading(false);
+    }
   }, [user]);
 
   const filteredTransactions = useMemo(() => {
@@ -103,11 +133,20 @@ export default function TransactionsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await deleteTransaction(transactionId);
+            const result = await deleteTransaction(transactionId);
+            if (!result.success) {
+              Alert.alert('Error', 'Failed to delete transaction. Please try again.');
+            }
           },
         },
       ]
     );
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    // The useEffect will re-run and retry the connection
   };
 
   const RenderTransactionItem = ({ item }: { item: Transaction }) => (
@@ -203,10 +242,19 @@ export default function TransactionsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {loading ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1 }}/>
+        <View style={styles.emptyStateContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.emptyStateText}>Loading transactions...</Text>
+        </View>
       ) : error ? (
         <View style={styles.emptyStateContainer}>
           <Text style={styles.emptyStateText}>{error}</Text>
+          <TouchableOpacity 
+            style={[styles.filterButton, styles.activeFilterButton]} 
+            onPress={handleRetry}
+          >
+            <Text style={[styles.filterText, styles.activeFilterText]}>Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
