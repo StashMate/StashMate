@@ -45,7 +45,14 @@ export default function EditProfileScreen() {
         try {
             let photoURL = user?.photoURL;
             if (image && image !== user?.photoURL) {
-                photoURL = await uploadImageAndGetURL(image, user.uid);
+                const uploadResult = await uploadImageAndGetURL(image, user.uid);
+                if (uploadResult.success) {
+                    photoURL = uploadResult.url;
+                } else {
+                    alert(uploadResult.error || 'Failed to upload image');
+                    setLoading(false);
+                    return;
+                }
             }
 
             const updatedData = {
