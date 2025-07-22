@@ -22,6 +22,30 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     fontWeight: 'bold',
     color: colors.text,
   },
+  accountSelectorContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: colors.background,
+  },
+  accountButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    marginHorizontal: 5,
+  },
+  selectedAccountButton: {
+    backgroundColor: colors.primary,
+  },
+  accountButtonText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+  },
+  selectedAccountButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
   searchContainer: {
     paddingHorizontal: 20,
     paddingVertical: 10,

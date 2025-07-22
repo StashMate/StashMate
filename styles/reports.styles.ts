@@ -21,6 +21,59 @@ export const getReportsStyles = (colors: IColors) => StyleSheet.create({
         fontWeight: 'bold',
         color: colors.text,
     },
+    accountSelectorContainer: {
+        marginBottom: 20,
+    },
+    accountButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: colors.card,
+        borderWidth: 1,
+        borderColor: colors.border,
+        marginRight: 10,
+    },
+    activeAccountButton: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    accountButtonText: {
+        fontSize: 14,
+        color: colors.text,
+        fontWeight: '600',
+    },
+    activeAccountButtonText: {
+        color: '#FFFFFF',
+    },
+    metricsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        marginBottom: 20,
+    },
+    metricCard: {
+        backgroundColor: colors.card,
+        borderRadius: 10,
+        padding: 15,
+        alignItems: 'center',
+        flex: 1,
+        marginHorizontal: 5,
+    },
+    metricLabel: {
+        fontSize: 14,
+        color: colors.secondaryText,
+        marginBottom: 5,
+    },
+    metricValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.text,
+    },
+    incomeText: {
+        color: colors.success,
+    },
+    expenseText: {
+        color: colors.danger,
+    },
     filterContainer: {
         flexDirection: 'row',
         justifyContent: 'space-around',

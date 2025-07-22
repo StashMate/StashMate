@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
 import { db, deleteTransaction } from '../../firebase';
 import { getTransactionsStyles } from '../../styles/transactions.styles';
+import { useSavings } from '../../context/SavingsContext';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -18,6 +19,7 @@ interface Transaction {
   paymentMethod?: string;
   type: 'income' | 'expense';
   date: Timestamp;
+  accountId?: string;
 }
 
 export default function TransactionsScreen() {
@@ -25,6 +27,7 @@ export default function TransactionsScreen() {
   const styles = getTransactionsStyles(colors);
   const { user } = useUser();
   const router = useRouter();
+  const { accounts, selectedAccount, setSelectedAccount } = useSavings();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,13 +40,23 @@ export default function TransactionsScreen() {
     setLoading(true);
     setError(null);
 
-    const q = query(
-      collection(db, 'transactions'), 
-      where('userId', '==', user.uid),
-      orderBy('date', 'desc')
-    );
+    let transactionsQuery;
+    if (selectedAccount) {
+        transactionsQuery = query(
+            collection(db, 'transactions'), 
+            where('userId', '==', user.uid),
+            where('accountId', '==', selectedAccount.id),
+            orderBy('date', 'desc')
+        );
+    } else {
+        transactionsQuery = query(
+            collection(db, 'transactions'), 
+            where('userId', '==', user.uid),
+            orderBy('date', 'desc')
+        );
+    }
 
-    const unsubscribe = onSnapshot(q, 
+    const unsubscribe = onSnapshot(transactionsQuery, 
       (snapshot) => {
         const fetchedTransactions: Transaction[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
         setTransactions(fetchedTransactions);
@@ -57,7 +70,7 @@ export default function TransactionsScreen() {
     );
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, selectedAccount]);
 
   const filteredTransactions = useMemo(() => {
     let filtered = transactions;
@@ -159,6 +172,22 @@ export default function TransactionsScreen() {
     <>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Transactions</Text>
+      </View>
+      <View style={styles.accountSelectorContainer}>
+        <FlatList
+            horizontal
+            data={accounts}
+            renderItem={({ item }) => (
+                <TouchableOpacity
+                    style={[styles.accountButton, selectedAccount?.id === item.id && styles.selectedAccountButton]}
+                    onPress={() => setSelectedAccount(item)}
+                >
+                    <Text style={[styles.accountButtonText, selectedAccount?.id === item.id && styles.selectedAccountButtonText]}>{item.institution}</Text>
+                </TouchableOpacity>
+            )}
+            keyExtractor={(item) => item.id}
+            showsHorizontalScrollIndicator={false}
+        />
       </View>
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} style={styles.searchIcon} />

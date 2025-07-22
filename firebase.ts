@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { addDoc, collection, deleteDoc, doc, getDoc, getFirestore, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -338,6 +338,86 @@ export const deleteVault = async (accountId: string, vaultId: string) => {
   } catch (error: any) {
     console.error("Error deleting vault:", error);
     return { success: false, error: "Failed to delete vault." };
+  }
+};
+
+/**
+ * Makes a deposit to a savings vault by updating the current amount.
+ * @param {string} accountId - The ID of the account containing the vault.
+ * @param {string} vaultId - The ID of the vault to deposit to.
+ * @param {number} amount - The amount to deposit.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const addVaultDeposit = async (accountId: string, vaultId: string, amount: number) => {
+  try {
+    const vaultDocRef = doc(db, 'accounts', accountId, 'vaults', vaultId);
+    const vaultDoc = await getDoc(vaultDocRef);
+    
+    if (!vaultDoc.exists()) {
+      return { success: false, error: "Vault not found." };
+    }
+    
+    const currentData = vaultDoc.data();
+    const newAmount = (currentData.currentAmount || 0) + amount;
+    
+    await updateDoc(vaultDocRef, {
+      currentAmount: newAmount,
+      lastDeposit: {
+        amount: amount,
+        timestamp: serverTimestamp(),
+      }
+    });
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error making deposit:", error);
+    return { success: false, error: "Failed to make deposit." };
+  }
+};
+
+/**
+ * Gets savings analytics for a specific account.
+ * @param {string} accountId - The ID of the account to analyze.
+ * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+ */
+export const getSavingsAnalytics = async (accountId: string) => {
+  try {
+    const vaultsCollectionRef = collection(db, 'accounts', accountId, 'vaults');
+    const vaultsSnapshot = await getDocs(vaultsCollectionRef);
+    
+    let totalSaved = 0;
+    let totalTarget = 0;
+    let completedVaults = 0;
+    let activeVaults = 0;
+    
+    vaultsSnapshot.docs.forEach(doc => {
+      const vault = doc.data();
+      totalSaved += vault.currentAmount || 0;
+      totalTarget += vault.targetAmount || 0;
+      
+      if (vault.currentAmount >= vault.targetAmount) {
+        completedVaults++;
+      } else {
+        activeVaults++;
+      }
+    });
+    
+    const savingsRate = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0;
+    
+    return {
+      success: true,
+      data: {
+        totalSaved,
+        totalTarget,
+        savingsRate,
+        completedVaults,
+        activeVaults,
+        totalVaults: vaultsSnapshot.size
+      }
+    };
+  } catch (error: any) {
+    console.error("Error getting analytics:", error);
+    return { success: false, error: "Failed to get analytics." };
   }
 };
 

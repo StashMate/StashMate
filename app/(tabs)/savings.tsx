@@ -1,20 +1,17 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { collection, onSnapshot, query, Timestamp, where } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import { useUser } from '../../context/UserContext';
-import { db, deleteVault, updateVault } from '../../firebase';
-import { getSavingsStyles } from '../../styles/savings.styles';
 
-interface Account {
-    id: string;
-    accountName: string;
-    balance: number;
-    institution: string;
-    logoUrl: string;
-}
+
+
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { Timestamp } from 'firebase/firestore';
+import React, { useState } from 'react';
+import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { CircularProgress } from 'react-native-circular-progress';
+import { SavingsProvider, useSavings } from '../../context/SavingsContext';
+import { useTheme } from '../../context/ThemeContext';
+import { addVaultDeposit, deleteVault, updateVault } from '../../firebase';
+import { getSavingsStyles } from '../../styles/savings.styles';
+import * as Haptics from 'expo-haptics';
 
 interface Vault {
     id: string;
@@ -25,52 +22,31 @@ interface Vault {
     deadline: Timestamp;
 }
 
-export default function SavingsScreen() {
+const SavingsScreenContent = () => {
     const { colors } = useTheme();
     const styles = getSavingsStyles(colors);
     const router = useRouter();
-    const { user } = useUser();
+    const { accounts, vaults, loading, error, selectedAccount, setSelectedAccount, refetch } = useSavings();
 
-    const [accounts, setAccounts] = useState<Account[]>([]);
-    const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
-    const [vaults, setVaults] = useState<Vault[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [imageErrors, setImageErrors] = useState<{[key: string]: boolean}>({});
-    const [isModalVisible, setModalVisible] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [isEditModalVisible, setEditModalVisible] = useState(false);
+    const [isDepositModalVisible, setDepositModalVisible] = useState(false);
     const [editingVault, setEditingVault] = useState<Vault | null>(null);
+    const [depositingVault, setDepositingVault] = useState<Vault | null>(null);
     const [editedName, setEditedName] = useState('');
     const [editedTargetAmount, setEditedTargetAmount] = useState('');
+    const [depositAmount, setDepositAmount] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
 
-    useEffect(() => {
-        if (!user) return;
-
-        const accountsQuery = query(collection(db, 'accounts'), where('userId', '==', user.uid));
-        const unsubscribe = onSnapshot(accountsQuery, (snapshot) => {
-            const fetchedAccounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Account));
-            setAccounts(fetchedAccounts);
-            if (fetchedAccounts.length > 0 && !selectedAccount) {
-                setSelectedAccount(fetchedAccounts[0]);
-            }
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, [user, selectedAccount]);
-
-    useEffect(() => {
-        if (!selectedAccount) return;
-
-        const vaultsQuery = query(collection(db, 'accounts', selectedAccount.id, 'vaults'));
-        const unsubscribe = onSnapshot(vaultsQuery, (snapshot) => {
-            const fetchedVaults = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vault));
-            setVaults(fetchedVaults);
-        });
-
-        return () => unsubscribe();
-    }, [selectedAccount]);
+    const onRefresh = React.useCallback(() => {
+        setRefreshing(true);
+        refetch();
+        setTimeout(() => setRefreshing(false), 1000);
+    }, [refetch]);
 
     const handleDeleteVault = (vaultId: string) => {
         if (!selectedAccount) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         Alert.alert(
             "Delete Vault",
             "Are you sure you want to delete this savings vault?",
@@ -94,175 +70,259 @@ export default function SavingsScreen() {
         setEditingVault(vault);
         setEditedName(vault.name);
         setEditedTargetAmount(vault.targetAmount.toString());
-        setModalVisible(true);
+        setEditModalVisible(true);
     };
 
     const handleUpdateVault = async () => {
         if (!editingVault || !selectedAccount) return;
 
         const updatedData = {
-            ...editingVault,
             name: editedName,
             targetAmount: parseFloat(editedTargetAmount),
         };
 
         const result = await updateVault(selectedAccount.id, editingVault.id, updatedData);
         if (result.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             Alert.alert("Success", "Vault updated successfully.");
-            setModalVisible(false);
+            setEditModalVisible(false);
             setEditingVault(null);
         } else {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             Alert.alert("Error", "Failed to update vault.");
         }
     };
 
-    const renderDeadlineStatus = (deadline: Timestamp) => {
-        const now = new Date();
-        const deadlineDate = deadline.toDate();
-        const daysRemaining = (deadlineDate.getTime() - now.getTime()) / (1000 * 3600 * 24);
-
-        if (daysRemaining < 0) {
-            return <Text style={[styles.statusText, styles.overdueStatus]}>Overdue</Text>;
-        }
-        if (daysRemaining <= 7) {
-            return <Text style={[styles.statusText, styles.dueSoonStatus]}>Due Soon</Text>;
-        }
-        return <Text style={styles.deadlineText}>Deadline: {deadlineDate.toLocaleDateString()}</Text>;
+    const handleDeposit = (vault: Vault) => {
+        setDepositingVault(vault);
+        setDepositModalVisible(true);
     };
 
+    const handleConfirmDeposit = async () => {
+        if (!depositingVault || !selectedAccount || !depositAmount) return;
 
-    if (loading) {
-        return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, justifyContent: 'center' }} />;
-    }
+        const amount = parseFloat(depositAmount);
+        if (isNaN(amount) || amount <= 0) {
+            Alert.alert("Invalid Amount", "Please enter a valid deposit amount.");
+            return;
+        }
 
-    if (accounts.length === 0) {
+        const result = await addVaultDeposit(selectedAccount.id, depositingVault.id, amount);
+        if (result.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert("Success", "Deposit successful.");
+            setDepositModalVisible(false);
+            setDepositingVault(null);
+            setDepositAmount('');
+        } else {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert("Error", "Failed to make deposit.");
+        }
+    };
+
+    const filteredVaults = vaults.filter(vault =>
+        vault.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const renderVault = ({ item }: { item: Vault }) => {
+        const progress = item.targetAmount > 0 ? (item.currentAmount / item.targetAmount) * 100 : 0;
         return (
-            <View style={styles.container}>
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Savings</Text>
+            <View style={styles.vaultCard}>
+                <CircularProgress
+                    size={80}
+                    width={8}
+                    fill={progress}
+                    tintColor={colors.primary}
+                    backgroundColor={colors.border}
+                    rotation={0}
+                >
+                    {() => <Ionicons name={item.icon as any} size={32} color={colors.primary} />}
+                </CircularProgress>
+                <View style={styles.vaultInfo}>
+                    <Text style={styles.vaultName}>{item.name}</Text>
+                    <Text style={styles.vaultAmount}>
+                        ${item.currentAmount.toLocaleString()} / ${item.targetAmount.toLocaleString()}
+                    </Text>
                 </View>
-                <View style={styles.emptyStateContainer}>
-                    <Text style={styles.emptyStateText}>No accounts linked yet.</Text>
-                    <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/linkBank')}>
-                        <Text style={styles.linkButtonText}>Link an Account</Text>
+                <View style={styles.vaultActions}>
+                    <TouchableOpacity onPress={() => handleDeposit(item)}>
+                        <Ionicons name="add-circle-outline" size={28} color={colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleEditVault(item)}>
+                        <Ionicons name="pencil-outline" size={24} color={colors.secondaryText} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteVault(item.id)}>
+                        <Ionicons name="trash-outline" size={24} color={colors.danger} />
                     </TouchableOpacity>
                 </View>
             </View>
         );
+    };
+
+    const renderSkeleton = () => (
+        <View style={styles.skeletonContainer}>
+            {[...Array(3)].map((_, i) => (
+                <View key={i} style={styles.skeletonVaultCard} />
+            ))}
+        </View>
+    );
+
+    if (error) {
+        return (
+            <View style={styles.container}>
+                <Text style={styles.errorText}>{error}</Text>
+            </View>
+        )
     }
-    
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Savings</Text>
             </View>
-            <ScrollView contentContainerStyle={styles.content}>
-                <View style={styles.accountSelector}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {accounts.map(account => (
-                            <TouchableOpacity
-                                key={account.id}
-                                style={[styles.accountButton, selectedAccount?.id === account.id && styles.selectedAccountButton]}
-                                onPress={() => setSelectedAccount(account)}
-                            >
-                                {imageErrors[account.id] ? (
-                                    <MaterialCommunityIcons name="bank" size={24} color={colors.primary} />
-                                ) : (
-                                    <Image 
-                                        source={{ uri: account.logoUrl }} 
-                                        style={styles.accountLogo} 
-                                        onError={() => setImageErrors(prev => ({...prev, [account.id]: true}))}
-                                    />
-                                )}
-                                <Text style={[styles.accountButtonText, selectedAccount?.id === account.id && styles.selectedAccountButtonText]}>{account.institution}</Text>
-                            </TouchableOpacity>
-                        ))}
-                        <TouchableOpacity style={styles.addAccountButton} onPress={() => router.push('/linkBank')}>
-                            <Ionicons name="add" size={20} color={colors.primary} />
-                            <Text style={styles.addAccountButtonText}>Add Account</Text>
-                        </TouchableOpacity>
-                    </ScrollView>
-                </View>
-
-                {selectedAccount && (
+            <View style={styles.searchContainer}>
+                <Ionicons name="search" size={20} color={colors.secondaryText} style={styles.searchIcon} />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search vaults..."
+                    placeholderTextColor={colors.secondaryText}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                />
+            </View>
+            <FlatList
+                data={loading ? [] : filteredVaults}
+                renderItem={renderVault}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.content}
+                ListHeaderComponent={
                     <>
-                        <View style={styles.totalSavingsCard}>
-                            <Text style={styles.totalSavingsLabel}>{selectedAccount.accountName}</Text>
-                            <Text style={styles.totalSavingsAmount}>${selectedAccount.balance.toLocaleString()}</Text>
-                        </View>
-
+                        <Text style={styles.sectionTitle}>Accounts</Text>
+                        <FlatList
+                            horizontal
+                            data={accounts}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    style={[styles.accountCard, selectedAccount?.id === item.id && styles.selectedAccountCard]}
+                                    onPress={() => setSelectedAccount(item)}
+                                >
+                                    <Ionicons name="wallet-outline" size={32} color={selectedAccount?.id === item.id ? '#fff' : colors.primary} />
+                                    <Text style={[styles.accountName, selectedAccount?.id === item.id && styles.selectedAccountText]}>{item.institution}</Text>
+                                    <Text style={[styles.accountBalance, selectedAccount?.id === item.id && styles.selectedAccountText]}>${item.balance.toLocaleString()}</Text>
+                                </TouchableOpacity>
+                            )}
+                            keyExtractor={(item) => item.id}
+                            showsHorizontalScrollIndicator={false}
+                            style={styles.accountSelector}
+                        />
                         <Text style={styles.sectionTitle}>Savings Vaults</Text>
-                        {vaults.length > 0 ? (
-                            vaults.map((vault) => {
-                                const progress = vault.targetAmount > 0 ? (vault.currentAmount / vault.targetAmount) * 100 : 0;
-                                return (
-                                <View key={vault.id} style={styles.vaultCard}>
-                                    <Ionicons name={vault.icon as any} size={32} color={colors.primary} />
-                                    <View style={styles.vaultInfo}>
-                                        <Text style={styles.vaultName}>{vault.name}</Text>
-                                        <Text style={styles.vaultAmount}>
-                                            ${vault.currentAmount.toLocaleString()} / ${vault.targetAmount.toLocaleString()}
-                                        </Text>
-                                        <View style={styles.progressBarContainer}>
-                                            <View style={[styles.progressBar, { width: `${progress}%` }]} />
-                                        </View>
-                                        {vault.deadline && renderDeadlineStatus(vault.deadline)}
-                                    </View>
-                                    <View style={styles.vaultActions}>
-                                        <TouchableOpacity onPress={() => handleEditVault(vault)}>
-                                            <Ionicons name="pencil-outline" size={24} color={colors.secondaryText} />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => handleDeleteVault(vault.id)}>
-                                            <Ionicons name="trash-outline" size={24} color={colors.danger} />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            )})
-                        ) : (
-                            <Text style={styles.emptyVaultsText}>No savings vaults in this account yet.</Text>
-                        )}
                     </>
+                }
+                ListEmptyComponent={loading ? renderSkeleton : (
+                    <View style={styles.emptyVaultsContainer}>
+                        <Text style={styles.emptyVaultsText}>No savings vaults found.</Text>
+                        <TouchableOpacity style={styles.newVaultButtonInline} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
+                            <Ionicons name="add" size={20} color="#fff" />
+                            <Text style={styles.newVaultButtonText}>Create a Vault</Text>
+                        </TouchableOpacity>
+                    </View>
                 )}
-            </ScrollView>
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]}/>}
+            />
 
+            {/* Edit Vault Modal */}
             <Modal
                 animationType="slide"
                 transparent={true}
-                visible={isModalVisible}
-                onRequestClose={() => setModalVisible(false)}
+                visible={isEditModalVisible}
+                onRequestClose={() => setEditModalVisible(false)}
             >
-                <View style={styles.modalContainer}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.modalContainer}
+                >
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Edit Vault</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={editedName}
-                            onChangeText={setEditedName}
-                            placeholder="Vault Name"
-                        />
-                        <TextInput
-                            style={styles.input}
-                            value={editedTargetAmount}
-                            onChangeText={setEditedTargetAmount}
-                            placeholder="Target Amount"
-                            keyboardType="numeric"
-                        />
+                        <Text style={styles.modalTitle}>Edit Savings Vault</Text>
+                        <View style={styles.inputContainer}>
+                            <Ionicons name="create-outline" size={20} color={colors.secondaryText} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                value={editedName}
+                                onChangeText={setEditedName}
+                                placeholder="Vault Name"
+                                placeholderTextColor={colors.secondaryText}
+                            />
+                        </View>
+                        <View style={styles.inputContainer}>
+                            <Ionicons name="cash-outline" size={20} color={colors.secondaryText} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                value={editedTargetAmount}
+                                onChangeText={setEditedTargetAmount}
+                                placeholder="Target Amount"
+                                placeholderTextColor={colors.secondaryText}
+                                keyboardType="numeric"
+                            />
+                        </View>
                         <View style={styles.modalButtonContainer}>
-                            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setModalVisible(false)}>
+                            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setEditModalVisible(false)}>
                                 <Text style={styles.buttonText}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleUpdateVault}>
-                                <Text style={styles.buttonText}>Save</Text>
+                                <Text style={styles.buttonText}>Save Changes</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                </KeyboardAvoidingView>
+            </Modal>
+
+            {/* Deposit Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={isDepositModalVisible}
+                onRequestClose={() => setDepositModalVisible(false)}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.modalContainer}
+                >
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Deposit Funds</Text>
+                        <View style={styles.inputContainer}>
+                            <Ionicons name="cash-outline" size={20} color={colors.secondaryText} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Enter amount"
+                                placeholderTextColor={colors.secondaryText}
+                                keyboardType="numeric"
+                                value={depositAmount}
+                                onChangeText={setDepositAmount}
+                            />
+                        </View>
+                        <View style={styles.modalButtonContainer}>
+                            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => setDepositModalVisible(false)}>
+                                <Text style={styles.buttonText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleConfirmDeposit}>
+                                <Text style={styles.buttonText}>Confirm Deposit</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
             </Modal>
 
             <TouchableOpacity style={styles.newVaultButton} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
-                <Ionicons name="add" size={24} color="#fff" />
-                <Text style={styles.newVaultButtonText}>Create New Vault</Text>
+                <Ionicons name="add" size={32} color="#fff" />
             </TouchableOpacity>
         </View>
+    );
+}
+
+export default function SavingsScreenWithProvider() {
+    return (
+        <SavingsProvider>
+            <SavingsScreenContent />
+        </SavingsProvider>
     );
 } 

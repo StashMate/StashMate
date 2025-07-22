@@ -39,6 +39,29 @@ export const getAddTransactionStyles = (colors: ThemeColors) => StyleSheet.creat
         padding: 15,
         fontSize: 16,
     },
+    accountSelector: {
+        flexDirection: 'row',
+        marginBottom: 20,
+    },
+    accountButton: {
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.primary,
+        marginHorizontal: 5,
+    },
+    selectedAccountButton: {
+        backgroundColor: colors.primary,
+    },
+    accountButtonText: {
+        color: colors.primary,
+        fontWeight: 'bold',
+    },
+    selectedAccountButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
     typeSelector: {
         flexDirection: 'row',
         justifyContent: 'space-around',

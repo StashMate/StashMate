@@ -1,27 +1,31 @@
+
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useUser } from '../context/UserContext';
 import { addTransaction } from '../firebase';
 import { getAddTransactionStyles } from '../styles/addTransaction.styles';
+import { useSavings } from '../context/SavingsContext';
 
 export default function AddTransactionScreen() {
   const { colors } = useTheme();
   const styles = getAddTransactionStyles(colors);
   const router = useRouter();
   const { user } = useUser();
+  const { accounts } = useSavings();
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [type, setType] = useState<'income' | 'expense'>('expense');
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   const handleAddTransaction = async () => {
-    if (!name.trim() || !amount.trim() || !user) {
-      Alert.alert('Missing Information', 'Please fill out all required fields.');
+    if (!name.trim() || !amount.trim() || !user || !selectedAccountId) {
+      Alert.alert('Missing Information', 'Please fill out all required fields and select an account.');
       return;
     }
 
@@ -43,12 +47,14 @@ export default function AddTransactionScreen() {
       date: Date;
       category: string;
       paymentMethod?: string;
+      accountId: string;
     } = {
       name,
       amount: numericAmount,
       type,
       date: new Date(),
       category: type === 'income' ? 'Income' : category,
+      accountId: selectedAccountId,
     };
 
     if (type === 'expense') {
@@ -77,7 +83,20 @@ export default function AddTransactionScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.form}>
+        <ScrollView contentContainerStyle={styles.form}>
+          <Text style={styles.label}>Account</Text>
+          <View style={styles.accountSelector}>
+            {accounts.map(account => (
+              <TouchableOpacity
+                key={account.id}
+                style={[styles.accountButton, selectedAccountId === account.id && styles.selectedAccountButton]}
+                onPress={() => setSelectedAccountId(account.id)}
+              >
+                <Text style={[styles.accountButtonText, selectedAccountId === account.id && styles.selectedAccountButtonText]}>{account.institution}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           <Text style={styles.label}>{type === 'income' ? 'Source' : 'Transaction Name'}</Text>
           <TextInput
             style={styles.input}
@@ -134,7 +153,7 @@ export default function AddTransactionScreen() {
               <Text style={[styles.typeButtonText, type === 'income' && styles.activeTypeText]}>Income</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity

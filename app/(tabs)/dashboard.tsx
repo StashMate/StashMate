@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { collection, doc, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore';
+import { collection, doc, getDocs, limit, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import React, { ComponentProps, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -19,6 +19,7 @@ import { financialQuotes } from '../../data/quotes';
 import { db } from '../../firebase';
 import { getChatbotStyles } from '../../styles/chatbot.styles';
 import { getDashboardStyles } from '../../styles/dashboard.styles';
+import { useNetBalance } from '../../hooks/useNetBalance';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -47,6 +48,7 @@ export default function DashboardScreen() {
   const chatbotStyles = getChatbotStyles(colors);
   const router = useRouter();
   const { user } = useUser();
+  const { netBalance, loading: netBalanceLoading, error: netBalanceError } = useNetBalance();
 
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -68,18 +70,45 @@ export default function DashboardScreen() {
       setLoading(false);
     });
 
-    // Fetch recent transactions
+    // Fetch recent transactions from each account
+    const fetchRecentTransactions = async () => {
+      const accountsQuery = query(collection(db, 'accounts'), where('userId', '==', user.uid));
+      const accountsSnapshot = await getDocs(accountsQuery);
+      const accountIds = accountsSnapshot.docs.map(doc => doc.id);
+
+      const latestTransactions: Transaction[] = [];
+      for (const accountId of accountIds) {
+        const q = query(
+          collection(db, 'transactions'),
+          where('userId', '==', user.uid),
+          where('accountId', '==', accountId),
+          orderBy('date', 'desc'),
+          limit(1) // Get only the latest transaction for this account
+        );
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          latestTransactions.push(snapshot.docs[0].data() as Transaction);
+        }
+      }
+
+      // Sort all fetched latest transactions by date and take the top 3
+      latestTransactions.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+      setRecentTransactions(latestTransactions.slice(0, 3));
+    };
+
+    fetchRecentTransactions(); // Initial fetch
+
+    // Set up real-time listeners for transactions (optional, but good for dynamic updates)
     const q = query(
       collection(db, 'transactions'),
       where('userId', '==', user.uid),
       orderBy('date', 'desc')
     );
     const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
-      const fetchedTransactions: Transaction[] = snapshot.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Transaction)
-      );
-      setRecentTransactions(fetchedTransactions);
+      // Re-fetch recent transactions from each account on any transaction change
+      fetchRecentTransactions();
     });
+
 
     return () => {
       unsubscribeUser();
@@ -101,7 +130,7 @@ export default function DashboardScreen() {
     fetchQuote();
   }, []);
 
-  if (loading) {
+  if (loading || netBalanceLoading) {
     return (
       <SafeAreaView style={dashboardStyles.container}>
         <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1 }} />
@@ -125,7 +154,8 @@ export default function DashboardScreen() {
 
         <View style={dashboardStyles.card}>
             <Text style={dashboardStyles.title}>Net Balance</Text>
-            <Text style={dashboardStyles.balance}>$11,675.67</Text>
+            <Text style={[dashboardStyles.balance, netBalance < 0 && dashboardStyles.negativeBalance]}>${netBalance.toLocaleString()}</Text>
+            <Text style={dashboardStyles.lastUpdated}>Last updated: {new Date().toLocaleDateString()}</Text>
         </View>
 
         <View style={dashboardStyles.summaryCardsContainer}>

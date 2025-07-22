@@ -43,6 +43,14 @@ export const getDashboardStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 36,
     fontWeight: 'bold',
   },
+  negativeBalance: {
+    color: colors.danger,
+  },
+  lastUpdated: {
+    color: colors.secondaryText,
+    fontSize: 12,
+    marginTop: 5,
+  },
   summaryCardsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -1,46 +1,33 @@
 import { eachDayOfInterval, eachMonthOfInterval, endOfMonth, endOfWeek, endOfYear, format, startOfMonth, startOfWeek, startOfYear } from 'date-fns';
-import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { BarChart, LineChart } from 'react-native-chart-kit';
+import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
 import { db } from '../../firebase';
 import { getReportsStyles } from '../../styles/reports.styles';
-
+import { useSavings } from '../../context/SavingsContext';
 
 interface Transaction {
     id: string;
     type: 'income' | 'expense';
     amount: number;
+    category: string;
     date: { toDate: () => Date };
+    accountId?: string;
     [key: string]: any;
 }
 
-interface Vault {
-    id: string;
-    name: string;
-    currentAmount: number;
-    targetAmount: number;
-}
-
-interface Account {
-    id: string;
-    accountName: string;
-    balance: number;
-    vaults: Vault[];
-}
-
 type TimeRange = 'Weekly' | 'Monthly' | 'Yearly';
-
 
 export default function ReportsScreen() {
     const { colors } = useTheme();
     const styles = getReportsStyles(colors);
     const { user } = useUser();
+    const { accounts, selectedAccount, setSelectedAccount } = useSavings();
 
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [timeRange, setTimeRange] = useState<TimeRange>('Monthly');
@@ -51,36 +38,26 @@ export default function ReportsScreen() {
             return;
         }
 
-        const transactionsQuery = query(collection(db, 'transactions'), where('userId', '==', user.uid));
+        let transactionsQuery = query(collection(db, 'transactions'), where('userId', '==', user.uid));
+
+        if (selectedAccount) {
+            transactionsQuery = query(transactionsQuery, where('accountId', '==', selectedAccount.id));
+        }
+
         const unsubscribeTransactions = onSnapshot(transactionsQuery, (snapshot) => {
             const fetchedTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
             setTransactions(fetchedTransactions);
-            if(loading) setLoading(false);
+            setLoading(false);
         }, (err) => {
             console.error(err);
             setError("Failed to fetch transactions.");
             setLoading(false);
         });
 
-        const accountsQuery = query(collection(db, 'accounts'), where('userId', '==', user.uid));
-        const unsubscribeAccounts = onSnapshot(accountsQuery, async (snapshot) => {
-            const fetchedAccounts: Account[] = [];
-            for (const accountDoc of snapshot.docs) {
-                const vaultsSnapshot = await getDocs(collection(db, 'accounts', accountDoc.id, 'vaults'));
-                const vaults = vaultsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vault));
-                fetchedAccounts.push({ id: accountDoc.id, ...accountDoc.data(), vaults } as Account);
-            }
-            setAccounts(fetchedAccounts);
-        }, (err) => {
-            console.error(err);
-            setError("Failed to fetch accounts.");
-        });
-
         return () => {
             unsubscribeTransactions();
-            unsubscribeAccounts();
         };
-    }, [user]);
+    }, [user, selectedAccount]);
 
     const chartConfig = {
         backgroundColor: colors.card,
@@ -123,7 +100,7 @@ export default function ReportsScreen() {
                 break;
         }
 
-        const datePoints = 
+        const datePoints =
             timeRange === 'Weekly' ? eachDayOfInterval(interval) :
             timeRange === 'Yearly' ? eachMonthOfInterval(interval) :
             eachDayOfInterval(interval);
@@ -162,14 +139,31 @@ export default function ReportsScreen() {
             legend: ["Income", "Expenses"]
         };
     };
-    
-    // Prepare data for Savings Bar Chart
-    const savingsChartData = {
-        labels: accounts.map(a => a.accountName.substring(0, 10)), // Truncate long names
-        datasets: [{
-            data: accounts.map(a => a.balance)
-        }]
+
+    // Prepare data for Expense Pie Chart
+    const processExpenseCategoryData = () => {
+        const expenseData: { [key: string]: number } = {};
+        transactions.filter(t => t.type === 'expense').forEach(t => {
+            expenseData[t.category] = (expenseData[t.category] || 0) + t.amount;
+        });
+
+        const data = Object.keys(expenseData).map((category, index) => {
+            const colorPalette = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+            return {
+                name: category,
+                population: expenseData[category],
+                color: colorPalette[index % colorPalette.length],
+                legendFontColor: colors.text,
+                legendFontSize: 12,
+            };
+        });
+        return data;
     };
+
+    // Calculate key metrics
+    const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const totalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    const netSavings = totalIncome - totalExpense;
 
     if (loading) {
         return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, justifyContent: 'center' }} />;
@@ -187,6 +181,41 @@ export default function ReportsScreen() {
         <ScrollView style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Reports</Text>
+            </View>
+
+            <View style={styles.accountSelectorContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <TouchableOpacity
+                        style={[styles.accountButton, !selectedAccount && styles.activeAccountButton]}
+                        onPress={() => setSelectedAccount(null)}
+                    >
+                        <Text style={[styles.accountButtonText, !selectedAccount && styles.activeAccountButtonText]}>All Accounts</Text>
+                    </TouchableOpacity>
+                    {accounts.map(account => (
+                        <TouchableOpacity
+                            key={account.id}
+                            style={[styles.accountButton, selectedAccount?.id === account.id && styles.activeAccountButton]}
+                            onPress={() => setSelectedAccount(account)}
+                        >
+                            <Text style={[styles.accountButtonText, selectedAccount?.id === account.id && styles.activeAccountButtonText]}>{account.accountName}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+
+            <View style={styles.metricsContainer}>
+                <View style={styles.metricCard}>
+                    <Text style={styles.metricLabel}>Total Income</Text>
+                    <Text style={[styles.metricValue, styles.incomeText]}>${totalIncome.toLocaleString()}</Text>
+                </View>
+                <View style={styles.metricCard}>
+                    <Text style={styles.metricLabel}>Total Expenses</Text>
+                    <Text style={[styles.metricValue, styles.expenseText]}>${totalExpense.toLocaleString()}</Text>
+                </View>
+                <View style={styles.metricCard}>
+                    <Text style={styles.metricLabel}>Net Savings</Text>
+                    <Text style={[styles.metricValue, netSavings >= 0 ? styles.incomeText : styles.expenseText]}>${netSavings.toLocaleString()}</Text>
+                </View>
             </View>
 
             <View style={styles.filterContainer}>
@@ -217,21 +246,22 @@ export default function ReportsScreen() {
                     <Text style={styles.emptyStateText}>No transaction data to display trend.</Text>
                 )}
             </View>
+
             <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>Savings Distribution</Text>
-                {accounts.length > 0 ? (
-                    <BarChart
-                        data={savingsChartData}
+                <Text style={styles.chartTitle}>Expense Categories</Text>
+                {transactions.filter(t => t.type === 'expense').length > 0 ? (
+                    <PieChart
+                        data={processExpenseCategoryData()}
                         width={screenWidth - 32}
                         height={220}
                         chartConfig={chartConfig}
-                        yAxisLabel="$"
-                        yAxisSuffix=""
-                        fromZero
-                        showValuesOnTopOfBars
+                        accessor="population"
+                        backgroundColor="transparent"
+                        paddingLeft="15"
+                        absolute
                     />
                 ) : (
-                    <Text style={styles.emptyStateText}>No savings data available.</Text>
+                    <Text style={styles.emptyStateText}>No expense data to display categories.</Text>
                 )}
             </View>
         </ScrollView>
