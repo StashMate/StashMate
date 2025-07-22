@@ -77,12 +77,12 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   totalSavingsLabel: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: colors.secondaryText,
   },
   totalSavingsAmount: {
     fontSize: 40,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
     marginTop: 5,
   },
   accountInfoCard: {
