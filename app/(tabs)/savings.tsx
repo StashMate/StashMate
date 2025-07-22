@@ -1,75 +1,37 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { collection, onSnapshot, query, Timestamp, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { useUser } from '../../context/UserContext';
-import { db, deleteVault, updateVault } from '../../firebase';
+import { useSavings } from '../../context/SavingsContext';
 import { getSavingsStyles } from '../../styles/savings.styles';
+import { BankAccount, Vault } from '../../data/savings';
 
-interface Account {
+interface EditingVault extends Vault {
     id: string;
-    accountName: string;
-    balance: number;
-    institution: string;
-    logoUrl: string;
-}
-
-interface Vault {
-    id: string;
-    name: string;
-    currentAmount: number;
     targetAmount: number;
-    icon: string;
-    deadline: Timestamp;
 }
 
 export default function SavingsScreen() {
     const { colors } = useTheme();
     const styles = getSavingsStyles(colors);
     const router = useRouter();
-    const { user } = useUser();
+    const { accounts, selectedAccount, setSelectedAccount } = useSavings();
 
-    const [accounts, setAccounts] = useState<Account[]>([]);
-    const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
-    const [vaults, setVaults] = useState<Vault[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [imageErrors, setImageErrors] = useState<{[key: string]: boolean}>({});
+    const [loading, setLoading] = useState(false);
     const [isModalVisible, setModalVisible] = useState(false);
-    const [editingVault, setEditingVault] = useState<Vault | null>(null);
+    const [editingVault, setEditingVault] = useState<EditingVault | null>(null);
     const [editedName, setEditedName] = useState('');
     const [editedTargetAmount, setEditedTargetAmount] = useState('');
 
+    // Initialize with first account if none selected
     useEffect(() => {
-        if (!user) return;
+        if (accounts.length > 0 && !selectedAccount) {
+            setSelectedAccount(accounts[0]);
+        }
+    }, [accounts, selectedAccount, setSelectedAccount]);
 
-        const accountsQuery = query(collection(db, 'accounts'), where('userId', '==', user.uid));
-        const unsubscribe = onSnapshot(accountsQuery, (snapshot) => {
-            const fetchedAccounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Account));
-            setAccounts(fetchedAccounts);
-            if (fetchedAccounts.length > 0 && !selectedAccount) {
-                setSelectedAccount(fetchedAccounts[0]);
-            }
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, [user, selectedAccount]);
-
-    useEffect(() => {
-        if (!selectedAccount) return;
-
-        const vaultsQuery = query(collection(db, 'accounts', selectedAccount.id, 'vaults'));
-        const unsubscribe = onSnapshot(vaultsQuery, (snapshot) => {
-            const fetchedVaults = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vault));
-            setVaults(fetchedVaults);
-        });
-
-        return () => unsubscribe();
-    }, [selectedAccount]);
-
-    const handleDeleteVault = (vaultId: string) => {
+    const handleDeleteVault = (vaultName: string) => {
         if (!selectedAccount) return;
         Alert.alert(
             "Delete Vault",
@@ -78,11 +40,9 @@ export default function SavingsScreen() {
                 { text: "Cancel", style: "cancel" },
                 {
                     text: "Delete",
-                    onPress: async () => {
-                        const result = await deleteVault(selectedAccount.id, vaultId);
-                        if (!result.success) {
-                            Alert.alert("Error", "Failed to delete vault.");
-                        }
+                    onPress: () => {
+                        // In a real app, this would delete from storage/database
+                        Alert.alert("Info", "Vault deletion not implemented in demo mode.");
                     },
                     style: "destructive",
                 },
@@ -90,44 +50,25 @@ export default function SavingsScreen() {
         );
     };
 
-    const handleEditVault = (vault: Vault) => {
-        setEditingVault(vault);
+    const handleEditVault = (vault: Vault, index: number) => {
+        const editVault: EditingVault = {
+            ...vault,
+            id: index.toString(),
+            targetAmount: vault.amount * 1.5 // Demo target amount
+        };
+        setEditingVault(editVault);
         setEditedName(vault.name);
-        setEditedTargetAmount(vault.targetAmount.toString());
+        setEditedTargetAmount(editVault.targetAmount.toString());
         setModalVisible(true);
     };
 
-    const handleUpdateVault = async () => {
+    const handleUpdateVault = () => {
         if (!editingVault || !selectedAccount) return;
 
-        const updatedData = {
-            ...editingVault,
-            name: editedName,
-            targetAmount: parseFloat(editedTargetAmount),
-        };
-
-        const result = await updateVault(selectedAccount.id, editingVault.id, updatedData);
-        if (result.success) {
-            Alert.alert("Success", "Vault updated successfully.");
-            setModalVisible(false);
-            setEditingVault(null);
-        } else {
-            Alert.alert("Error", "Failed to update vault.");
-        }
-    };
-
-    const renderDeadlineStatus = (deadline: Timestamp) => {
-        const now = new Date();
-        const deadlineDate = deadline.toDate();
-        const daysRemaining = (deadlineDate.getTime() - now.getTime()) / (1000 * 3600 * 24);
-
-        if (daysRemaining < 0) {
-            return <Text style={[styles.statusText, styles.overdueStatus]}>Overdue</Text>;
-        }
-        if (daysRemaining <= 7) {
-            return <Text style={[styles.statusText, styles.dueSoonStatus]}>Due Soon</Text>;
-        }
-        return <Text style={styles.deadlineText}>Deadline: {deadlineDate.toLocaleDateString()}</Text>;
+        // In a real app, this would update the storage/database
+        Alert.alert("Info", "Vault editing not implemented in demo mode.");
+        setModalVisible(false);
+        setEditingVault(null);
     };
 
 
@@ -142,7 +83,7 @@ export default function SavingsScreen() {
                     <Text style={styles.headerTitle}>Savings</Text>
                 </View>
                 <View style={styles.emptyStateContainer}>
-                    <Text style={styles.emptyStateText}>No accounts linked yet.</Text>
+                    <Text style={styles.emptyStateText}>No accounts available.</Text>
                     <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/linkBank')}>
                         <Text style={styles.linkButtonText}>Link an Account</Text>
                     </TouchableOpacity>
@@ -165,16 +106,8 @@ export default function SavingsScreen() {
                                 style={[styles.accountButton, selectedAccount?.id === account.id && styles.selectedAccountButton]}
                                 onPress={() => setSelectedAccount(account)}
                             >
-                                {imageErrors[account.id] ? (
-                                    <MaterialCommunityIcons name="bank" size={24} color={colors.primary} />
-                                ) : (
-                                    <Image 
-                                        source={{ uri: account.logoUrl }} 
-                                        style={styles.accountLogo} 
-                                        onError={() => setImageErrors(prev => ({...prev, [account.id]: true}))}
-                                    />
-                                )}
-                                <Text style={[styles.accountButtonText, selectedAccount?.id === account.id && styles.selectedAccountButtonText]}>{account.institution}</Text>
+                                <MaterialCommunityIcons name="bank" size={24} color={colors.primary} />
+                                <Text style={[styles.accountButtonText, selectedAccount?.id === account.id && styles.selectedAccountButtonText]}>{account.bankName}</Text>
                             </TouchableOpacity>
                         ))}
                         <TouchableOpacity style={styles.addAccountButton} onPress={() => router.push('/linkBank')}>
@@ -187,32 +120,32 @@ export default function SavingsScreen() {
                 {selectedAccount && (
                     <>
                         <View style={styles.totalSavingsCard}>
-                            <Text style={styles.totalSavingsLabel}>{selectedAccount.accountName}</Text>
-                            <Text style={styles.totalSavingsAmount}>${selectedAccount.balance.toLocaleString()}</Text>
+                            <Text style={styles.totalSavingsLabel}>{selectedAccount.bankName}</Text>
+                            <Text style={styles.totalSavingsAmount}>${selectedAccount.totalSavings.toLocaleString()}</Text>
                         </View>
 
                         <Text style={styles.sectionTitle}>Savings Vaults</Text>
-                        {vaults.length > 0 ? (
-                            vaults.map((vault) => {
-                                const progress = vault.targetAmount > 0 ? (vault.currentAmount / vault.targetAmount) * 100 : 0;
+                        {selectedAccount.vaults.length > 0 ? (
+                            selectedAccount.vaults.map((vault, index) => {
+                                const targetAmount = vault.amount * 1.5; // Demo target amount
+                                const progress = targetAmount > 0 ? (vault.amount / targetAmount) * 100 : 0;
                                 return (
-                                <View key={vault.id} style={styles.vaultCard}>
+                                <View key={index} style={styles.vaultCard}>
                                     <Ionicons name={vault.icon as any} size={32} color={colors.primary} />
                                     <View style={styles.vaultInfo}>
                                         <Text style={styles.vaultName}>{vault.name}</Text>
                                         <Text style={styles.vaultAmount}>
-                                            ${vault.currentAmount.toLocaleString()} / ${vault.targetAmount.toLocaleString()}
+                                            ${vault.amount.toLocaleString()} / ${targetAmount.toLocaleString()}
                                         </Text>
                                         <View style={styles.progressBarContainer}>
-                                            <View style={[styles.progressBar, { width: `${progress}%` }]} />
+                                            <View style={[styles.progressBar, { width: `${Math.min(progress, 100)}%` }]} />
                                         </View>
-                                        {vault.deadline && renderDeadlineStatus(vault.deadline)}
                                     </View>
                                     <View style={styles.vaultActions}>
-                                        <TouchableOpacity onPress={() => handleEditVault(vault)}>
+                                        <TouchableOpacity onPress={() => handleEditVault(vault, index)}>
                                             <Ionicons name="pencil-outline" size={24} color={colors.secondaryText} />
                                         </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => handleDeleteVault(vault.id)}>
+                                        <TouchableOpacity onPress={() => handleDeleteVault(vault.name)}>
                                             <Ionicons name="trash-outline" size={24} color={colors.danger} />
                                         </TouchableOpacity>
                                     </View>
@@ -259,7 +192,13 @@ export default function SavingsScreen() {
                 </View>
             </Modal>
 
-            <TouchableOpacity style={styles.newVaultButton} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
+            <TouchableOpacity style={styles.newVaultButton} onPress={() => {
+                if (selectedAccount) {
+                    router.push({ pathname: '/addVault', params: { accountId: selectedAccount.id.toString() }});
+                } else {
+                    Alert.alert("No Account", "Please select an account first.");
+                }
+            }}>
                 <Ionicons name="add" size={24} color="#fff" />
                 <Text style={styles.newVaultButtonText}>Create New Vault</Text>
             </TouchableOpacity>

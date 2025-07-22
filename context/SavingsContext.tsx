@@ -3,7 +3,7 @@ import { savingsData, BankAccount } from '../data/savings';
 
 interface SavingsContextType {
   accounts: BankAccount[];
-  selectedAccount: BankAccount;
+  selectedAccount: BankAccount | null;
   setSelectedAccount: (account: BankAccount) => void;
 }
 
@@ -11,7 +11,7 @@ const SavingsContext = createContext<SavingsContextType | undefined>(undefined);
 
 export const SavingsProvider = ({ children }: { children: ReactNode }) => {
   const [accounts] = useState<BankAccount[]>(savingsData);
-  const [selectedAccount, setSelectedAccount] = useState<BankAccount>(accounts[0]);
+  const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(accounts.length > 0 ? accounts[0] : null);
 
   return (
     <SavingsContext.Provider value={{ accounts, selectedAccount, setSelectedAccount }}>
