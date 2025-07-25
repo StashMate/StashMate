@@ -1,6 +1,6 @@
-import { eachDayOfInterval, eachMonthOfInterval, endOfMonth, endOfWeek, endOfYear, format, startOfMonth, startOfWeek, startOfYear } from 'date-fns';
+import { eachDayOfInterval, eachMonthOfInterval, endOfMonth, endOfWeek, endOfYear, format, startOfMonth, startOfWeek, startOfYear, subMonths } from 'date-fns';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Dimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import { useTheme } from '../../context/ThemeContext';
@@ -78,7 +78,6 @@ export default function ReportsScreen() {
 
     const screenWidth = Dimensions.get('window').width;
 
-    // Prepare data for Income vs Expense Line Chart (Trend)
     const processTransactionTrendData = () => {
         const now = new Date();
         let interval;
@@ -87,16 +86,16 @@ export default function ReportsScreen() {
         switch (timeRange) {
             case 'Weekly':
                 interval = { start: startOfWeek(now), end: endOfWeek(now) };
-                dateFormat = 'EEE'; // Day of week (e.g., 'Mon')
+                dateFormat = 'EEE';
                 break;
             case 'Yearly':
                 interval = { start: startOfYear(now), end: endOfYear(now) };
-                dateFormat = 'MMM'; // Month abbreviation (e.g., 'Jan')
+                dateFormat = 'MMM';
                 break;
             case 'Monthly':
             default:
                 interval = { start: startOfMonth(now), end: endOfMonth(now) };
-                dateFormat = 'd'; // Day of month
+                dateFormat = 'd';
                 break;
         }
 
@@ -140,7 +139,6 @@ export default function ReportsScreen() {
         };
     };
 
-    // Prepare data for Expense Pie Chart
     const processExpenseCategoryData = () => {
         const expenseData: { [key: string]: number } = {};
         transactions.filter(t => t.type === 'expense').forEach(t => {
@@ -160,10 +158,33 @@ export default function ReportsScreen() {
         return data;
     };
 
-    // Calculate key metrics
-    const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-    const totalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-    const netSavings = totalIncome - totalExpense;
+    const { totalIncome, totalExpense, netSavings, savingsRate, monthlySpendingComparison } = useMemo(() => {
+        const now = new Date();
+        const currentMonthStart = startOfMonth(now);
+        const lastMonthStart = startOfMonth(subMonths(now, 1));
+        const lastMonthEnd = endOfMonth(subMonths(now, 1));
+
+        const currentMonthTransactions = transactions.filter(t => t.date.toDate() >= currentMonthStart);
+        const lastMonthTransactions = transactions.filter(t => {
+            const transactionDate = t.date.toDate();
+            return transactionDate >= lastMonthStart && transactionDate <= lastMonthEnd;
+        });
+
+        const totalIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const totalExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        const lastMonthExpense = lastMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+
+        const netSavings = totalIncome - totalExpense;
+        const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0;
+
+        return {
+            totalIncome,
+            totalExpense,
+            netSavings,
+            savingsRate,
+            monthlySpendingComparison: { currentMonth: totalExpense, lastMonth: lastMonthExpense }
+        };
+    }, [transactions]);
 
     if (loading) {
         return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, justifyContent: 'center' }} />;
@@ -186,6 +207,7 @@ export default function ReportsScreen() {
             <View style={styles.accountSelectorContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <TouchableOpacity
+                        key="all-accounts-button"
                         style={[styles.accountButton, !selectedAccount && styles.activeAccountButton]}
                         onPress={() => setSelectedAccount(null)}
                     >
@@ -204,18 +226,33 @@ export default function ReportsScreen() {
             </View>
 
             <View style={styles.metricsContainer}>
-                <View style={styles.metricCard}>
-                    <Text style={styles.metricLabel}>Total Income</Text>
-                    <Text style={[styles.metricValue, styles.incomeText]}>${totalIncome.toLocaleString()}</Text>
+                <View style={styles.metricRow}>
+                    <View style={styles.metricCard}>
+                        <Text style={styles.metricLabel}>Total Income</Text>
+                        <Text style={[styles.metricValue, styles.incomeText]}>${totalIncome.toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.metricCard}>
+                        <Text style={styles.metricLabel}>Total Expenses</Text>
+                        <Text style={[styles.metricValue, styles.expenseText]}>${totalExpense.toLocaleString()}</Text>
+                    </View>
                 </View>
-                <View style={styles.metricCard}>
-                    <Text style={styles.metricLabel}>Total Expenses</Text>
-                    <Text style={[styles.metricValue, styles.expenseText]}>${totalExpense.toLocaleString()}</Text>
+                <View style={styles.metricRow}>
+                    <View style={styles.metricCard}>
+                        <Text style={styles.metricLabel}>Net Savings</Text>
+                        <Text style={[styles.metricValue, netSavings >= 0 ? styles.incomeText : styles.expenseText]}>${netSavings.toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.metricCard}>
+                        <Text style={styles.metricLabel}>Savings Rate</Text>
+                        <Text style={styles.savingsRateText}>{savingsRate.toFixed(2)}%</Text>
+                    </View>
                 </View>
-                <View style={styles.metricCard}>
-                    <Text style={styles.metricLabel}>Net Savings</Text>
-                    <Text style={[styles.metricValue, netSavings >= 0 ? styles.incomeText : styles.expenseText]}>${netSavings.toLocaleString()}</Text>
-                </View>
+            </View>
+
+            <View style={styles.comparisonContainer}>
+                <Text style={styles.chartTitle}>Monthly Spending Comparison</Text>
+                <Text style={styles.comparisonText}>
+                    Last Month: ${monthlySpendingComparison.lastMonth.toLocaleString()} | This Month: ${monthlySpendingComparison.currentMonth.toLocaleString()}
+                </Text>
             </View>
 
             <View style={styles.filterContainer}>

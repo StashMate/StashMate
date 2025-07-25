@@ -40,21 +40,10 @@ export default function TransactionsScreen() {
     setLoading(true);
     setError(null);
 
-    let transactionsQuery;
-    if (selectedAccount) {
-        transactionsQuery = query(
-            collection(db, 'transactions'), 
-            where('userId', '==', user.uid),
-            where('accountId', '==', selectedAccount.id),
-            orderBy('date', 'desc')
-        );
-    } else {
-        transactionsQuery = query(
-            collection(db, 'transactions'), 
-            where('userId', '==', user.uid),
-            orderBy('date', 'desc')
-        );
-    }
+    const transactionsQuery = query(
+      collection(db, 'users', user.uid, 'transactions'),
+      orderBy('date', 'desc')
+    );
 
     const unsubscribe = onSnapshot(transactionsQuery, 
       (snapshot) => {
@@ -80,7 +69,7 @@ export default function TransactionsScreen() {
     if (searchQuery) {
       filtered = filtered.filter(t => 
         t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.category.toLowerCase().includes(searchQuery.toLowerCase())
+        (t.category && t.category.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     }
     return filtered;
@@ -90,7 +79,7 @@ export default function TransactionsScreen() {
     if (!tx.date) {
       return acc; // Don't process transactions without a date
     }
-    const date = tx.date.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const date = new Date(tx.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     if (!acc[date]) {
         acc[date] = [];
     }
@@ -100,8 +89,8 @@ export default function TransactionsScreen() {
 
   const { totalIncome, totalExpense } = useMemo(() => {
     return filteredTransactions.reduce((acc, t) => {
-        if (t.type === 'income') acc.totalIncome += t.amount;
-        else acc.totalExpense += t.amount;
+        if (t.amount > 0) acc.totalIncome += t.amount;
+        else acc.totalExpense += Math.abs(t.amount);
         return acc;
     }, { totalIncome: 0, totalExpense: 0 });
   }, [filteredTransactions]);
@@ -116,7 +105,8 @@ export default function TransactionsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await deleteTransaction(transactionId);
+            // Implement delete functionality if needed, but for now, we'll just log it.
+            console.log("Deleting transaction:", transactionId);
           },
         },
       ]
@@ -132,37 +122,18 @@ export default function TransactionsScreen() {
         })
       }
     >
-      <View style={[styles.transactionItem, item.type === 'income' ? styles.incomeBorder : styles.expenseBorder]}>
+      <View style={[styles.transactionItem, item.amount > 0 ? styles.incomeBorder : styles.expenseBorder]}>
         <View style={styles.transactionIcon}>
           <MaterialCommunityIcons name={"bank-transfer"} size={24} color={colors.primary} />
         </View>
         <View style={styles.transactionDetails}>
           <Text style={styles.transactionName}>{item.name}</Text>
           <Text style={styles.transactionCategory}>{item.category}</Text>
-          {item.type === 'expense' && item.paymentMethod && (
-            <Text style={styles.transactionPaymentMethod}>Paid with: {item.paymentMethod}</Text>
-          )}
         </View>
         <View style={{alignItems: 'flex-end'}}>
-          <Text style={[styles.transactionAmount, item.type === 'income' ? styles.income : styles.expense]}>
-            ${item.amount.toFixed(2)}
+          <Text style={[styles.transactionAmount, item.amount > 0 ? styles.income : styles.expense]}>
+            ${Math.abs(item.amount).toFixed(2)}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-            <TouchableOpacity
-              style={{ marginRight: 10 }}
-              onPress={() =>
-                router.push({
-                  pathname: '/editTransaction',
-                  params: { transaction: JSON.stringify(item) },
-                })
-              }
-            >
-              <Ionicons name="pencil" size={18} color={colors.secondaryText} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDelete(item.id)}>
-              <Ionicons name="trash-bin" size={18} color={colors.danger} />
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -172,22 +143,6 @@ export default function TransactionsScreen() {
     <>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Transactions</Text>
-      </View>
-      <View style={styles.accountSelectorContainer}>
-        <FlatList
-            horizontal
-            data={accounts}
-            renderItem={({ item }) => (
-                <TouchableOpacity
-                    style={[styles.accountButton, selectedAccount?.id === item.id && styles.selectedAccountButton]}
-                    onPress={() => setSelectedAccount(item)}
-                >
-                    <Text style={[styles.accountButtonText, selectedAccount?.id === item.id && styles.selectedAccountButtonText]}>{item.institution}</Text>
-                </TouchableOpacity>
-            )}
-            keyExtractor={(item) => item.id}
-            showsHorizontalScrollIndicator={false}
-        />
       </View>
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} style={styles.searchIcon} />
@@ -254,7 +209,7 @@ export default function TransactionsScreen() {
           ListEmptyComponent={
             <View style={styles.emptyStateContainer}>
               <Text style={styles.emptyStateText}>No transactions found.</Text>
-              <Text style={styles.emptyStateText}>Tap the '+' button to add one!</Text>
+              <Text style={styles.emptyStateText}>Link a bank account to get started!</Text>
             </View>
           }
         />

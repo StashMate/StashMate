@@ -7,8 +7,9 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { getStorage } from 'firebase/storage';
+// import { FlutterWaveButton, closePaymentModal } from 'flutterwave-react-v3';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_API_KEY,
@@ -18,6 +19,12 @@ const firebaseConfig = {
   messagingSenderId: process.env.EXPO_PUBLIC_MESSAGING_SENDER_ID,
   appId: process.env.EXPO_PUBLIC_APP_ID,
 };
+
+const Flutterwave = {
+  publicKey: process.env.FLW_PUBLIC_KEY,
+  secretKey: process.env.FLW_SECRET_KEY,
+}
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -52,7 +59,8 @@ export const signUpWithEmail = async (fullName: string, email: string, password:
       displayName: fullName,
       createdAt: serverTimestamp(),
       lastLogin: serverTimestamp(),
-      streak: 1, 
+      streak: 1,
+      timezoneOffset: new Date().getTimezoneOffset(), // Store timezone offset at signup
     });
 
     // Return a success status and the user object
@@ -80,21 +88,32 @@ export const signInWithEmail = async (email: string, password: string) => {
 
     if (userData && userData.lastLogin) {
       const lastLoginDate = userData.lastLogin.toDate();
-      const today = new Date();
-      const yesterday = new Date();
-      yesterday.setDate(today.getDate() - 1);
+      const userTimezoneOffset = userData.timezoneOffset || 0; // Default to 0 if not set
 
-      if (lastLoginDate.toDateString() === yesterday.toDateString()) {
+      const now = new Date();
+      const todayLocal = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + userTimezoneOffset * 60000);
+      const lastLoginLocal = new Date(lastLoginDate.getTime() + lastLoginDate.getTimezoneOffset() * 60000 + userTimezoneOffset * 60000);
+
+      const todayStartOfDayLocal = new Date(todayLocal.getFullYear(), todayLocal.getMonth(), todayLocal.getDate());
+      const lastLoginStartOfDayLocal = new Date(lastLoginLocal.getFullYear(), lastLoginLocal.getMonth(), lastLoginLocal.getDate());
+
+      const oneDay = 24 * 60 * 60 * 1000;
+      const diffDays = Math.round(Math.abs((todayStartOfDayLocal.getTime() - lastLoginStartOfDayLocal.getTime()) / oneDay));
+
+      if (diffDays === 1) {
+        // User logged in yesterday (local time), increment streak
         await updateDoc(userDocRef, {
           streak: (userData.streak || 0) + 1,
           lastLogin: serverTimestamp(),
         });
-      } else if (lastLoginDate.toDateString() !== today.toDateString()) {
+      } else if (diffDays > 1) {
+        // User did not log in yesterday (local time), reset streak
         await updateDoc(userDocRef, {
           streak: 1,
           lastLogin: serverTimestamp(),
         });
       }
+      // If diffDays is 0, user logged in today, do nothing (streak already updated or no need to update)
     } else {
       await updateDoc(userDocRef, {
         lastLogin: serverTimestamp(),
@@ -136,6 +155,7 @@ export const signInWithGoogle = async (id_token: string) => {
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
         streak: 1,
+        timezoneOffset: new Date().getTimezoneOffset(), // Store timezone offset at signup
       });
       return { success: true, user: user, isNewUser: true };
     } else {
@@ -143,21 +163,32 @@ export const signInWithGoogle = async (id_token: string) => {
       const userData = userDocSnap.data();
       if (userData && userData.lastLogin) {
         const lastLoginDate = userData.lastLogin.toDate();
-        const today = new Date();
-        const yesterday = new Date();
-        yesterday.setDate(today.getDate() - 1);
+      const userTimezoneOffset = userData.timezoneOffset || 0; // Default to 0 if not set
 
-        if (lastLoginDate.toDateString() === yesterday.toDateString()) {
-          await updateDoc(userDocRef, {
-            streak: (userData.streak || 0) + 1,
-            lastLogin: serverTimestamp(),
-          });
-        } else if (lastLoginDate.toDateString() !== today.toDateString()) {
-          await updateDoc(userDocRef, {
-            streak: 1,
-            lastLogin: serverTimestamp(),
-          });
-        }
+      const now = new Date();
+      const todayLocal = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + userTimezoneOffset * 60000);
+      const lastLoginLocal = new Date(lastLoginDate.getTime() + lastLoginDate.getTimezoneOffset() * 60000 + userTimezoneOffset * 60000);
+
+      const todayStartOfDayLocal = new Date(todayLocal.getFullYear(), todayLocal.getMonth(), todayLocal.getDate());
+      const lastLoginStartOfDayLocal = new Date(lastLoginLocal.getFullYear(), lastLoginLocal.getMonth(), lastLoginLocal.getDate());
+
+      const oneDay = 24 * 60 * 60 * 1000;
+      const diffDays = Math.round(Math.abs((todayStartOfDayLocal.getTime() - lastLoginStartOfDayLocal.getTime()) / oneDay));
+
+      if (diffDays === 1) {
+        // User logged in yesterday (local time), increment streak
+        await updateDoc(userDocRef, {
+          streak: (userData.streak || 0) + 1,
+          lastLogin: serverTimestamp(),
+        });
+      } else if (diffDays > 1) {
+        // User did not log in yesterday (local time), reset streak
+        await updateDoc(userDocRef, {
+          streak: 1,
+          lastLogin: serverTimestamp(),
+        });
+      }
+      // If diffDays is 0, user logged in today, do nothing (streak already updated or no need to update)
       } else {
         await updateDoc(userDocRef, {
           lastLogin: serverTimestamp(),
@@ -179,6 +210,8 @@ export const signInWithGoogle = async (id_token: string) => {
  * @param {object} transactionData - The transaction data.
  * @returns {Promise<{success: boolean, error?: any}>}
  */
+import { checkAndAwardBadges, checkAndCompleteChallenges } from './services/gamificationService';
+
 export const addTransaction = async (userId: string, transactionData: { name: string; amount: number; category: string; type: 'income' | 'expense' }) => {
   try {
     const transactionsCollectionRef = collection(db, 'transactions');
@@ -187,6 +220,9 @@ export const addTransaction = async (userId: string, transactionData: { name: st
       userId: userId,
       date: serverTimestamp(), // Use server timestamp for consistency
     });
+    // Trigger gamification checks after adding a transaction
+    await checkAndAwardBadges(userId);
+    await checkAndCompleteChallenges(userId);
     return { success: true };
   } catch (error: any) {
     console.error("Error adding transaction:", error);
@@ -203,7 +239,16 @@ export const addTransaction = async (userId: string, transactionData: { name: st
 export const updateTransaction = async (transactionId: string, updatedData: any) => {
   try {
     const transactionDocRef = doc(db, 'transactions', transactionId);
+    // Handle refunds: if type is expense and amount is negative, treat as refund
+    if (updatedData.type === 'expense' && updatedData.amount < 0) {
+      // You might want to store this as a separate type or flag, e.g., { type: 'refund', originalExpenseId: transactionId }
+      // For now, we'll just allow negative expense amounts to deduct from total expenses.
+      // No special handling needed here other than allowing the update.
+    }
     await updateDoc(transactionDocRef, updatedData);
+    // Trigger gamification checks after updating a transaction
+    await checkAndAwardBadges(updatedData.userId); // Assuming userId is available in updatedData or can be fetched
+    await checkAndCompleteChallenges(updatedData.userId); // Assuming userId is available in updatedData or can be fetched
     return { success: true };
   } catch (error: any) {
     console.error("Error updating transaction:", error);
@@ -375,11 +420,12 @@ export const addVaultDeposit = async (accountId: string, vaultId: string, amount
   }
 };
 
-/**
+/*
  * Gets savings analytics for a specific account.
  * @param {string} accountId - The ID of the account to analyze.
  * @returns {Promise<{success: boolean, data?: any, error?: any}>}
  */
+
 export const getSavingsAnalytics = async (accountId: string) => {
   try {
     const vaultsCollectionRef = collection(db, 'accounts', accountId, 'vaults');
@@ -420,6 +466,316 @@ export const getSavingsAnalytics = async (accountId: string) => {
     return { success: false, error: "Failed to get analytics." };
   }
 };
+
+/**
+ * Sets or updates a monthly budget for a specific category for a user.
+ * @param {string} userId - The ID of the user.
+ * @param {string} category - The category to set the budget for (e.g., "Dining", "Groceries").
+ * @param {number} budgetAmount - The monthly budget amount.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const setCategoryBudget = async (userId: string, category: string, budgetAmount: number) => {
+  try {
+    const budgetDocRef = doc(db, 'budgets', `${userId}_${category}`);
+    await setDoc(budgetDocRef, {
+      userId,
+      category,
+      budgetAmount,
+      updatedAt: serverTimestamp(),
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error setting budget:", error);
+    return { success: false, error: "Failed to set budget." };
+  }
+};
+
+/**
+ * Tracks spending against a budget for a specific category and month.
+ * @param {string} userId - The ID of the user.
+ * @param {string} category - The category to track.
+ * @returns {Promise<{success: boolean, spentAmount?: number, budgetAmount?: number, progress?: number, warning?: string, error?: any}>}
+ */
+export const trackBudget = async (userId: string, category: string) => {
+  try {
+    // 1. Get the budget for the category
+    const budgetDocRef = doc(db, 'budgets', `${userId}_${category}`);
+    const budgetDoc = await getDoc(budgetDocRef);
+
+    if (!budgetDoc.exists()) {
+      return { success: false, error: "No budget set for this category." };
+    }
+    const { budgetAmount } = budgetDoc.data();
+
+    // 2. Sum expenses for the current month in that category
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const transactionsQuery = query(
+      collection(db, 'transactions'),
+      where('userId', '==', userId),
+      where('category', '==', category),
+      where('type', '==', 'expense'),
+      where('date', '>=', startOfMonth),
+      where('date', '<=', endOfMonth)
+    );
+
+    const querySnapshot = await getDocs(transactionsQuery);
+    const spentAmount = querySnapshot.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
+
+    // 3. Compare spent amount vs. budget
+    const progress = (spentAmount / budgetAmount);
+    let warning;
+    if (progress >= 1) {
+      warning = `You have exceeded your budget for ${category}.`;
+      // Optional: Lock category here by setting a flag in Firestore, for example.
+    } else if (progress >= 0.8) {
+      warning = `You have spent ${Math.round(progress * 100)}% of your budget for ${category}.`;
+    }
+
+    return {
+      success: true,
+      spentAmount,
+      budgetAmount,
+      progress,
+      warning,
+    };
+  } catch (error: any) {
+    console.error("Error tracking budget:", error);
+    return { success: false, error: "Failed to track budget." };
+  }
+};
+
+
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+
+/**
+ * Uploads an image to Firebase Storage and returns its download URL.
+ * @param {string} uri - The local URI of the image.
+ * @param {string} storagePath - The path in Firebase Storage where the image will be stored (e.g., 'profile_pictures/userId.jpg').
+ * @returns {Promise<{success: boolean, url?: string, error?: any}>}
+ */
+
+
+/**
+ * Links a bank account using Paystack's account verification API.
+ * @param {string} userId - The ID of the user linking the account.
+ * @param {object} accountData - The data for the account to link.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const linkAccountWithPaystack = async (userId: string, accountData: { accountNumber: string; bankCode: string; bankName: string }) => {
+  try {
+    // First, verify the account with Paystack
+    const verificationResult = await verifyBankAccount(accountData.accountNumber, accountData.bankCode);
+    
+    if (!verificationResult.success) {
+      return { success: false, error: verificationResult.error || "Could not verify account" };
+    }
+    
+    // If verification is successful, store the account details
+    await addDoc(collection(db, 'accounts'), {
+      userId,
+      accountName: verificationResult.data.account_name,
+      accountNumber: accountData.accountNumber,
+      bankCode: accountData.bankCode,
+      bankName: accountData.bankName,
+      balance: 0, // Initial balance, will be updated by transaction sync
+      institution: accountData.bankName,
+      logoUrl: "", // You can add bank logos if available
+      createdAt: serverTimestamp(),
+      lastSynced: serverTimestamp(),
+    });
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error linking account with Paystack:", error);
+    return { success: false, error: "Failed to link account." };
+  }
+};
+
+/**
+ * Verifies a bank account using Paystack's API.
+ * @param {string} accountNumber - The account number to verify.
+ * @param {string} bankCode - The bank code.
+ * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+ */
+export const verifyBankAccount = async (accountNumber: string, bankCode: string) => {
+  try {
+    // This would typically be a server-side call to protect your API key
+    // For demo purposes, we're showing how it would work
+    // In production, you should create a Cloud Function to handle this
+    
+    const response = await fetch(`https://api.paystack.co/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${process.env.EXPO_PUBLIC_PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    const result = await response.json();
+    
+    if (result.status) {
+      return { success: true, data: result.data };
+    } else {
+      return { success: false, error: result.message };
+    }
+  } catch (error: any) {
+    console.error("Error verifying bank account:", error);
+    return { success: false, error: "Failed to verify account." };
+  }
+};
+
+/**
+ * Fetches the list of banks from Paystack's API.
+ * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+ */
+export const fetchBanks = async () => {
+  try {
+    // This would typically be a server-side call to protect your API key
+    // For demo purposes, we're showing how it would work
+    // In production, you should create a Cloud Function to handle this
+    
+    const response = await fetch('https://api.paystack.co/bank', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${process.env.EXPO_PUBLIC_PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    const result = await response.json();
+    
+    if (result.status) {
+      // Transform the data to match our expected format
+      const banks = result.data.map((bank: any) => ({
+        id: bank.id.toString(),
+        name: bank.name,
+        code: bank.code,
+        // Add logo if available
+      }));
+      
+      return { success: true, data: banks };
+    } else {
+      return { success: false, error: result.message };
+    }
+  } catch (error: any) {
+    console.error("Error fetching banks:", error);
+    return { success: false, error: "Failed to fetch banks." };
+  }
+};
+
+/**
+ * Syncs transactions for a linked account using Paystack's API.
+ * @param {string} userId - The ID of the user.
+ * @param {string} accountId - The ID of the linked account.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const syncTransactions = async (userId: string, accountId: string) => {
+  try {
+    // Get the account details
+    const accountDocRef = doc(db, 'accounts', accountId);
+    const accountDoc = await getDoc(accountDocRef);
+    
+    if (!accountDoc.exists()) {
+      return { success: false, error: "Account not found." };
+    }
+    
+    const accountData = accountDoc.data();
+    const lastSynced = accountData.lastSynced?.toDate() || new Date(0); // Default to epoch if never synced
+    
+    // In a real implementation, you would call Paystack's API to get transactions
+    // For this demo, we'll simulate fetching transactions
+    // This would typically be done in a Cloud Function to protect your API keys
+    
+    // Simulate new transactions (in a real app, these would come from Paystack's API)
+    const newTransactions = [
+      {
+        id: `trans_${Date.now()}_1`,
+        amount: 5000, // Amount in smallest currency unit (e.g., kobo for NGN)
+        currency: "NGN",
+        date: new Date(),
+        description: "Grocery shopping",
+        category: "Groceries",
+        type: "expense"
+      },
+      {
+        id: `trans_${Date.now()}_2`,
+        amount: 10000,
+        currency: "NGN",
+        date: new Date(),
+        description: "Salary payment",
+        category: "Income",
+        type: "income"
+      }
+    ];
+    
+    // Add the transactions to Firestore
+    const batch = writeBatch(db);
+    
+    newTransactions.forEach(transaction => {
+      const transactionRef = doc(collection(db, 'transactions'));
+      batch.set(transactionRef, {
+        ...transaction,
+        userId,
+        accountId,
+        synced: true,
+        createdAt: serverTimestamp()
+      });
+    });
+    
+    // Update the last synced timestamp
+    batch.update(accountDocRef, {
+      lastSynced: serverTimestamp()
+    });
+    
+    await batch.commit();
+    
+    // Trigger gamification checks
+    await checkAndAwardBadges(userId);
+    await checkAndCompleteChallenges(userId);
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error syncing transactions:", error);
+    return { success: false, error: "Failed to sync transactions." };
+  }
+};
+
+
+
+/**
+ * Uploads an image to Firebase Storage and returns its download URL.
+ * @param {string} uri - The local URI of the image.
+ * @param {string} storagePath - The path in Firebase Storage where the image will be stored (e.g., 'profile_pictures/userId.jpg').
+ * @returns {Promise<{success: boolean, url?: string, error?: any}>}
+ */
+export const uploadImageAndGetURL = async (uri: string, storagePath: string) => {
+  try {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const storageRef = ref(storage, storagePath);
+    const uploadTask = await uploadBytes(storageRef, blob);
+    const downloadURL = await getDownloadURL(uploadTask.ref);
+    return { success: true, url: downloadURL };
+  } catch (error: any) {
+    console.error("Error uploading image:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 export { app, auth, db, storage };

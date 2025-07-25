@@ -14,8 +14,6 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: 20,
     paddingTop: 50,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.separator,
   },
   headerTitle: {
     fontSize: 24,

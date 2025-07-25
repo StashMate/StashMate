@@ -134,4 +134,15 @@ export const getAuthStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.primary,
     fontWeight: 'bold',
   },
-}); 
+  errorContainer: {
+    marginBottom: 15,
+    padding: 10,
+    borderRadius: 5,
+    backgroundColor: colors.danger + '20',
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+});

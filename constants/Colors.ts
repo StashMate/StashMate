@@ -34,9 +34,9 @@ export const Colors = {
     separator: '#333',
     success: '#4caf50',
     danger: '#f44336',
-    warning: '#ffc107',
+    warning: '#FFA500', // Orange for warnings
     link: '#0a7ea4',
     primary: '#0a7ea4',
     border: '#272727',
   },
-}; 
+};

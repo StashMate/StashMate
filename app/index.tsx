@@ -48,7 +48,7 @@ export default function WelcomeScreen() {
     taglineOpacity.value = withDelay(1200, withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }));
 
     const timer = setTimeout(() => {
-      router.replace('/login');
+      router.push('/login');
     }, 3000);
 
     return () => clearTimeout(timer);
@@ -79,4 +79,4 @@ export default function WelcomeScreen() {
       </View>
     </View>
   );
-} 
+}

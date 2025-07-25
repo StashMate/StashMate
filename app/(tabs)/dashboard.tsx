@@ -1,25 +1,24 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { collection, doc, getDocs, limit, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore';
+import { collection, doc, limit, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import React, { ComponentProps, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
 import { financialQuotes } from '../../data/quotes';
-import { db } from '../../firebase';
-import { getChatbotStyles } from '../../styles/chatbot.styles';
-import { getDashboardStyles } from '../../styles/dashboard.styles';
+import { db, setCategoryBudget, trackBudget } from '../../firebase';
 import { useNetBalance } from '../../hooks/useNetBalance';
+import { getDashboardStyles } from '../../styles/dashboard.styles';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -45,7 +44,6 @@ type Quote = {
 export default function DashboardScreen() {
   const { colors } = useTheme();
   const dashboardStyles = getDashboardStyles(colors);
-  const chatbotStyles = getChatbotStyles(colors);
   const router = useRouter();
   const { user } = useUser();
   const { netBalance, loading: netBalanceLoading, error: netBalanceError } = useNetBalance();
@@ -54,9 +52,10 @@ export default function DashboardScreen() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [quote, setQuote] = useState<Quote | null>(null);
-  const [budget, setBudget] = useState({ current: 600, target: 1000 });
+  const [budgets, setBudgets] = useState<any[]>([]);
   const [isBudgetModalVisible, setBudgetModalVisible] = useState(false);
-  const [tempBudget, setTempBudget] = useState(budget);
+  const [newBudget, setNewBudget] = useState({ category: '', amount: '' });
+  const [isAddBudgetVisible, setAddBudgetVisible] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -70,45 +69,28 @@ export default function DashboardScreen() {
       setLoading(false);
     });
 
-    // Fetch recent transactions from each account
-    const fetchRecentTransactions = async () => {
-      const accountsQuery = query(collection(db, 'accounts'), where('userId', '==', user.uid));
-      const accountsSnapshot = await getDocs(accountsQuery);
-      const accountIds = accountsSnapshot.docs.map(doc => doc.id);
-
-      const latestTransactions: Transaction[] = [];
-      for (const accountId of accountIds) {
-        const q = query(
-          collection(db, 'transactions'),
-          where('userId', '==', user.uid),
-          where('accountId', '==', accountId),
-          orderBy('date', 'desc'),
-          limit(1) // Get only the latest transaction for this account
-        );
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          latestTransactions.push(snapshot.docs[0].data() as Transaction);
-        }
-      }
-
-      // Sort all fetched latest transactions by date and take the top 3
-      latestTransactions.sort((a, b) => b.date.toMillis() - a.date.toMillis());
-      setRecentTransactions(latestTransactions.slice(0, 3));
+    // Fetch budgets
+    const fetchBudgets = async () => {
+      const categories = ['Dining', 'Groceries', 'Transport']; // Example categories
+      const budgetData = await Promise.all(
+        categories.map(category => trackBudget(user.uid, category))
+      );
+      setBudgets(budgetData.filter(b => b.success));
     };
 
-    fetchRecentTransactions(); // Initial fetch
+    fetchBudgets();
 
-    // Set up real-time listeners for transactions (optional, but good for dynamic updates)
-    const q = query(
+    // Fetch recent transactions
+    const transactionsQuery = query(
       collection(db, 'transactions'),
       where('userId', '==', user.uid),
-      orderBy('date', 'desc')
+      orderBy('date', 'desc'),
+      limit(3)
     );
-    const unsubscribeTransactions = onSnapshot(q, (snapshot) => {
-      // Re-fetch recent transactions from each account on any transaction change
-      fetchRecentTransactions();
+    const unsubscribeTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+      const transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Transaction[];
+      setRecentTransactions(transactions);
     });
-
 
     return () => {
       unsubscribeUser();
@@ -116,9 +98,17 @@ export default function DashboardScreen() {
     };
   }, [user]);
 
-  const handleSaveBudget = () => {
-    setBudget(tempBudget);
-    setBudgetModalVisible(false);
+  const handleSetBudget = async () => {
+    if (user && newBudget.category && newBudget.amount) {
+      await setCategoryBudget(user.uid, newBudget.category, parseFloat(newBudget.amount));
+      setBudgetModalVisible(false);
+      // Refresh budgets
+      const budgetData = await Promise.all(
+        [...budgets.map(b => b.category), newBudget.category].map(category => trackBudget(user.uid, category))
+      );
+      setBudgets(budgetData.filter(b => b.success));
+      setNewBudget({ category: '', amount: '' });
+    }
   };
 
   const fetchQuote = () => {
@@ -159,10 +149,10 @@ export default function DashboardScreen() {
         </View>
 
         <View style={dashboardStyles.summaryCardsContainer}>
-            <TouchableOpacity style={dashboardStyles.summaryCard} onPress={() => { setTempBudget(budget); setBudgetModalVisible(true); }}>
+            <TouchableOpacity style={dashboardStyles.summaryCard} onPress={() => setBudgetModalVisible(true)}>
                 <Ionicons name="wallet-outline" size={28} color={colors.link} />
                 <Text style={dashboardStyles.summaryCardTitle}>Budget</Text>
-                <Text style={dashboardStyles.summaryCardValue}>${budget.current} / ${budget.target}</Text>
+                <Text style={dashboardStyles.summaryCardValue}>View Budgets</Text>
             </TouchableOpacity>
             <View style={dashboardStyles.summaryCard}>
                 <Ionicons name="flame-outline" size={28} color={colors.link} />
@@ -212,47 +202,173 @@ export default function DashboardScreen() {
           </View>
         </TouchableOpacity>
       </ScrollView>
-      <TouchableOpacity style={chatbotStyles.fab} onPress={() => router.push('/chatbot')}>
-        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
       <Modal
         animationType="slide"
         transparent={true}
         visible={isBudgetModalVisible}
-        onRequestClose={() => setBudgetModalVisible(false)}
+        onRequestClose={() => {
+          setBudgetModalVisible(false);
+          setAddBudgetVisible(false);
+        }}
       >
         <View style={dashboardStyles.modalContainer}>
-            <View style={dashboardStyles.modalContent}>
-                <Text style={dashboardStyles.modalTitle}>Adjust Budget</Text>
-                <View style={dashboardStyles.inputContainer}>
-                    <Text style={dashboardStyles.inputLabel}>Current Spend</Text>
-                    <TextInput
-                        style={dashboardStyles.input}
-                        keyboardType="numeric"
-                        value={String(tempBudget.current)}
-                        onChangeText={(text) => setTempBudget({ ...tempBudget, current: Number(text) })}
-                    />
+          <View style={dashboardStyles.modalContent}>
+            {isAddBudgetVisible ? (
+              <>
+                <View style={dashboardStyles.modalHeader}>
+                  <Text style={dashboardStyles.modalTitle}>Set New Budget</Text>
+                  <TouchableOpacity onPress={() => setAddBudgetVisible(false)}>
+                    <Ionicons name="close-outline" size={24} color={colors.text} />
+                  </TouchableOpacity>
                 </View>
                 <View style={dashboardStyles.inputContainer}>
-                    <Text style={dashboardStyles.inputLabel}>Target Budget</Text>
+                  <Text style={dashboardStyles.inputLabel}>Category</Text>
+                  <View style={dashboardStyles.enhancedInput}>
+                    <Ionicons name="pricetag-outline" size={20} color={colors.primary} style={dashboardStyles.inputIcon} />
                     <TextInput
-                        style={dashboardStyles.input}
-                        keyboardType="numeric"
-                        value={String(tempBudget.target)}
-                        onChangeText={(text) => setTempBudget({ ...tempBudget, target: Number(text) })}
+                      style={dashboardStyles.textInput}
+                      placeholder="e.g., Dining"
+                      placeholderTextColor={colors.secondaryText}
+                      value={newBudget.category}
+                      onChangeText={(text) => setNewBudget({ ...newBudget, category: text })}
                     />
+                  </View>
+                </View>
+                <View style={dashboardStyles.inputContainer}>
+                  <Text style={dashboardStyles.inputLabel}>Monthly Budget</Text>
+                  <View style={dashboardStyles.enhancedInput}>
+                    <Ionicons name="cash-outline" size={20} color={colors.primary} style={dashboardStyles.inputIcon} />
+                    <TextInput
+                      style={dashboardStyles.textInput}
+                      keyboardType="numeric"
+                      placeholder="e.g., 400"
+                      placeholderTextColor={colors.secondaryText}
+                      value={newBudget.amount}
+                      onChangeText={(text) => setNewBudget({ ...newBudget, amount: text })}
+                    />
+                  </View>
                 </View>
                 <View style={dashboardStyles.modalActions}>
-                    <TouchableOpacity style={[dashboardStyles.modalButton, dashboardStyles.cancelButton]} onPress={() => setBudgetModalVisible(false)}>
-                        <Text style={dashboardStyles.cancelButtonText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[dashboardStyles.modalButton, dashboardStyles.saveButton]} onPress={handleSaveBudget}>
-                        <Text style={dashboardStyles.saveButtonText}>Save</Text>
-                    </TouchableOpacity>
+                  <TouchableOpacity style={[dashboardStyles.modalButton, dashboardStyles.cancelButton]} onPress={() => setAddBudgetVisible(false)}>
+                    <Text style={dashboardStyles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[dashboardStyles.modalButton, dashboardStyles.saveButton]} onPress={handleSetBudget}>
+                    <Text style={dashboardStyles.saveButtonText}>Set Budget</Text>
+                  </TouchableOpacity>
                 </View>
-            </View>
+              </>
+            ) : (
+              <>
+                <View style={dashboardStyles.modalHeader}>
+                  <Text style={dashboardStyles.modalTitle}>Budgets</Text>
+                  <TouchableOpacity onPress={() => setBudgetModalVisible(false)}>
+                    <Ionicons name="close-outline" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+                
+                {budgets.length === 0 ? (
+                  <View style={dashboardStyles.emptyStateContainer}>
+                    <Ionicons name="wallet-outline" size={60} color={colors.secondaryText} />
+                    <Text style={dashboardStyles.emptyStateText}>No budgets set yet</Text>
+                    <Text style={dashboardStyles.emptyStateSubText}>Create your first budget to track spending</Text>
+                  </View>
+                ) : (
+                  <ScrollView style={dashboardStyles.budgetList}>
+                    {budgets.map((item, index) => (
+                      <View key={index} style={dashboardStyles.budgetItem}>
+                        <View style={dashboardStyles.budgetHeader}>
+                          <View style={dashboardStyles.categoryContainer}>
+                            <View style={[dashboardStyles.categoryIcon, { backgroundColor: getBudgetCategoryColor(item.category, colors) }]}>
+                              <Ionicons name={getBudgetCategoryIcon(item.category)} size={16} color="#fff" />
+                            </View>
+                            <Text style={dashboardStyles.budgetCategory}>{item.category}</Text>
+                          </View>
+                          <Text style={dashboardStyles.budgetValues}>
+                            <Text style={item.progress >= 1 ? dashboardStyles.danger : item.progress >= 0.8 ? dashboardStyles.warning : dashboardStyles.success}>
+                              ${item.spentAmount.toFixed(2)}
+                            </Text> / ${item.budgetAmount.toFixed(2)}
+                          </Text>
+                        </View>
+                        <View style={dashboardStyles.progressBarContainer}>
+                          <View 
+                            style={[
+                              dashboardStyles.progressBar, 
+                              { 
+                                width: `${Math.min(item.progress * 100, 100)}%`, 
+                                backgroundColor: item.progress >= 1 ? colors.danger : item.progress >= 0.8 ? colors.warning : colors.success 
+                              }
+                            ]} 
+                          />
+                        </View>
+                        <View style={dashboardStyles.budgetFooter}>
+                          {item.warning && (
+                            <Text style={item.progress >= 1 ? dashboardStyles.dangerText : dashboardStyles.warningText}>
+                              <Ionicons 
+                                name={item.progress >= 1 ? "alert-circle" : "alert-triangle"} 
+                                size={14} 
+                                color={item.progress >= 1 ? colors.danger : colors.warning} 
+                              /> {item.warning}
+                            </Text>
+                          )}
+                          <Text style={dashboardStyles.remainingText}>
+                            {item.progress < 1 ? 
+                              `$${(item.budgetAmount - item.spentAmount).toFixed(2)} remaining` : 
+                              `$${(item.spentAmount - item.budgetAmount).toFixed(2)} over budget`}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+                
+                <TouchableOpacity 
+                  style={[dashboardStyles.addBudgetButton]} 
+                  onPress={() => setAddBudgetVisible(true)}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color={colors.background} />
+                  <Text style={dashboardStyles.addBudgetButtonText}>Add Budget</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
   );
 }
+
+
+// Helper functions for budget categories
+const getBudgetCategoryIcon = (category: string): IconName => {
+const categoryMap: Record<string, IconName> = {
+'Dining': 'restaurant-outline',
+'Groceries': 'cart-outline',
+'Transport': 'car-outline',
+'Entertainment': 'film-outline',
+'Shopping': 'bag-outline',
+'Utilities': 'flash-outline',
+'Housing': 'home-outline',
+'Healthcare': 'medical-outline',
+'Education': 'school-outline',
+'Travel': 'airplane-outline',
+};
+
+return categoryMap[category] || 'pricetag-outline';
+};
+
+const getBudgetCategoryColor = (category: string, colors: ThemeColors): string => {
+const categoryMap: Record<string, string> = {
+'Dining': '#FF6B6B',
+'Groceries': '#4ECDC4',
+'Transport': '#FFD166',
+'Entertainment': '#9D65C9',
+'Shopping': '#FF9F1C',
+'Utilities': '#5D8CAE',
+'Housing': '#6B5CA5',
+'Healthcare': '#72A276',
+'Education': '#5D8CAE',
+'Travel': '#FF9A76',
+};
+
+return categoryMap[category] || colors.primary;
+};

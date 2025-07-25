@@ -71,7 +71,7 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     paddingHorizontal: 20,
     paddingVertical: 10,
     backgroundColor: colors.background,
-    borderBottomWidth: 1,
+   
     borderBottomColor: colors.separator,
   },
   filterButton: {

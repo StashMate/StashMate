@@ -1,129 +1,133 @@
-import { StyleSheet, Dimensions } from 'react-native';
-import { Colors } from '../constants/Colors';
+import { StyleSheet } from 'react-native';
+import { IColors } from './types';
 
-type ThemeColors = typeof Colors.light | typeof Colors.dark;
-const { width } = Dimensions.get('window');
-export const badgeSize = (width - 60) / 2;
-
-export const getRewardsStyles = (colors: ThemeColors) => StyleSheet.create({
+export const getRewardsStyles = (colors: IColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
   header: {
+    marginTop: 50,
+    padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 15,
-    position: 'relative',
   },
   backButton: {
-    position: 'absolute',
-    left: 20,
-    top: 50,
+    marginRight: 10,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-  },
-  sectionTitle: {
+  title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
-    marginTop: 20,
+  },
+  section: {
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
     marginBottom: 15,
   },
-  badgeGrid: {
+  badgeList: {
+    paddingBottom: 10,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
   badgeContainer: {
-    width: badgeSize,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  badgeImageContainer: {
-    width: badgeSize,
-    height: badgeSize,
-    backgroundColor: colors.card,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    padding: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  badgeImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-  },
-  badgeName: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  pointsCard: {
-    backgroundColor: colors.card,
-    borderRadius: 10,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pointsInfo: {
-    marginLeft: 15,
-  },
-  pointsLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  pointsValue: {
-    fontSize: 14,
-    color: colors.secondaryText,
-    marginTop: 2,
-  },
-  achievementCard: {
     backgroundColor: colors.card,
     borderRadius: 10,
     padding: 15,
+    alignItems: 'center',
+    marginBottom: 15,
+    // Remove width and marginHorizontal properties as we're handling layout differently now
+  },
+  blurredBadge: {
+    opacity: 0.3,
+  },
+  badgeName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  badgeDescription: {
+    fontSize: 12,
+    color: colors.secondaryText,
+    textAlign: 'center',
+    marginTop: 5,
+  },
+  challengeList: {
+    paddingBottom: 20,
+  },
+  challengeContainer: {
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+  },
+  challengeHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
   },
-  achievementIcon: {
-    width: 45,
-    height: 45,
-    borderRadius: 10,
-    backgroundColor: colors.iconBackground,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  achievementInfo: {
-    flex: 1,
-  },
-  achievementTitle: {
+  challengeName: {
     fontSize: 16,
     fontWeight: 'bold',
     color: colors.text,
   },
-  achievementDescription: {
-    fontSize: 14,
+  challengeTimeRemaining: {
+    fontSize: 12,
     color: colors.secondaryText,
-    marginTop: 2,
   },
-}); 
+  challengeDescription: {
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 15,
+  },
+  challengeDetails: {
+    fontSize: 12,
+    color: colors.secondaryText,
+    marginBottom: 10,
+  },
+  startButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    marginTop: 10,
+    alignSelf: 'flex-start',
+  },
+  startButtonText: {
+    color: colors.buttonText,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  progressBarContainer: {
+    height: 10,
+    backgroundColor: colors.border,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: colors.primary,
+  },
+  errorText: {
+    color: colors.danger,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  emptyText: {
+    color: colors.secondaryText,
+    textAlign: 'center',
+  },
+});
+
+
+export const fetchAllBadges = (): void => {
+  // ...
+};
