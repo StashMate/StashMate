@@ -1,10 +1,8 @@
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
-import * as Google from 'expo-auth-session/providers/google';
 import { Stack, useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  Alert,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -12,14 +10,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
-import { signInWithEmail, signInWithGoogle } from '../../firebase';
+import { signInWithEmail } from '../../firebase';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { getAuthStyles } from '../../styles/auth.styles';
-
-WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const { colors } = useTheme();
@@ -31,37 +28,32 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_ANDROID_CLIENT_ID,
-  });
+  const { promptAsync: promptGoogleSignIn, loading: googleLoading, error: googleError } = useGoogleAuth();
 
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      const processGoogleSignIn = async () => {
-        setLoading(true);
-        const result = await signInWithGoogle(id_token);
-        setLoading(false);
-        if (result.success && result.user) {
-          setUser({ uid: result.user.uid, email: result.user.email, displayName: result.user.displayName });
-          router.replace('/(tabs)/dashboard');
-        } else {
-          Alert.alert('Google Sign-In Failed', result.error);
-        }
-      };
-      processGoogleSignIn();
+  const getFriendlyErrorMessage = (errorCode: string) => {
+    switch (errorCode) {
+      case 'auth/invalid-email':
+        return 'Please enter a valid email address.';
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        return 'Incorrect email or password. Please try again.';
+      case 'auth/too-many-requests':
+        return 'Too many failed login attempts. Please try again later.';
+      default:
+        return 'An unexpected error occurred. Please try again.';
     }
-  }, [response]);
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Login Failed', 'Please fill in both email and password.');
+      setError('Please fill in both email and password.');
       return;
     }
     setLoading(true);
+    setError('');
     const result = await signInWithEmail(email, password);
     setLoading(false);
 
@@ -69,12 +61,12 @@ export default function LoginScreen() {
       setUser(result.user);
       router.replace('/(tabs)/dashboard');
     } else {
-      Alert.alert('Login Failed', result.error);
+      setError(getFriendlyErrorMessage(result.error));
     }
   };
 
   const handleGoogleSignIn = () => {
-    promptAsync();
+    promptGoogleSignIn();
   };
 
   const handleAppleSignIn = () => {
@@ -99,6 +91,11 @@ export default function LoginScreen() {
           <Text style={styles.subtitle}>Sign in to continue</Text>
 
           <View style={styles.formContainer}>
+            {(error || googleError) ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error || googleError}</Text>
+              </View>
+            ) : null}
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
@@ -126,8 +123,12 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-              <Text style={styles.buttonText}>Sign In</Text>
+            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading || googleLoading}>
+              {(loading || googleLoading) ? (
+                <ActivityIndicator color={colors.background} />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -138,7 +139,7 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.socialButtonContainer}>
-              <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn} disabled={loading}>
+              <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn} disabled={loading || googleLoading}>
                   <Ionicons name="logo-google" size={22} color={colors.text} style={styles.socialIcon} />
                   <Text style={styles.socialButtonText}>Continue with Google</Text>
               </TouchableOpacity>
@@ -160,4 +161,4 @@ export default function LoginScreen() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-} 
+}

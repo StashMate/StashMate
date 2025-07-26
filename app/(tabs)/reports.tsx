@@ -1,20 +1,20 @@
 import { eachDayOfInterval, eachMonthOfInterval, endOfMonth, endOfWeek, endOfYear, format, startOfMonth, startOfWeek, startOfYear, subMonths } from 'date-fns';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Dimensions, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
-import { useTheme } from '../../context/ThemeContext';
-import { useUser } from '../../context/UserContext';
-import { db } from '../../firebase';
-import { getReportsStyles } from '../../styles/reports.styles';
 import { useSavings } from '../../context/SavingsContext';
+import { useTheme } from '../../context/ThemeContext';
+import { useTransactions } from '../../context/TransactionsContext';
+import { useUser } from '../../context/UserContext';
+import { getReportsStyles } from '../../styles/reports.styles';
 
 interface Transaction {
-    id: string;
+    id?: string;
     type: 'income' | 'expense';
     amount: number;
     category: string;
-    date: { toDate: () => Date };
+    date: any; // Firebase Timestamp or string
     accountId?: string;
     [key: string]: any;
 }
@@ -26,38 +26,15 @@ export default function ReportsScreen() {
     const styles = getReportsStyles(colors);
     const { user } = useUser();
     const { accounts, selectedAccount, setSelectedAccount } = useSavings();
+    const { transactions, refreshTransactions, loading: transactionsLoading, error: transactionsError } = useTransactions();
 
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [timeRange, setTimeRange] = useState<TimeRange>('Monthly');
 
-    useEffect(() => {
-        if (!user) {
-            setLoading(false);
-            return;
-        }
-
-        let transactionsQuery = query(collection(db, 'transactions'), where('userId', '==', user.uid));
-
-        if (selectedAccount) {
-            transactionsQuery = query(transactionsQuery, where('accountId', '==', selectedAccount.id));
-        }
-
-        const unsubscribeTransactions = onSnapshot(transactionsQuery, (snapshot) => {
-            const fetchedTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
-            setTransactions(fetchedTransactions);
-            setLoading(false);
-        }, (err) => {
-            console.error(err);
-            setError("Failed to fetch transactions.");
-            setLoading(false);
-        });
-
-        return () => {
-            unsubscribeTransactions();
-        };
-    }, [user, selectedAccount]);
+    useFocusEffect(
+        useCallback(() => {
+            refreshTransactions();
+        }, [refreshTransactions])
+    );
 
     const chartConfig = {
         backgroundColor: colors.card,
@@ -78,7 +55,14 @@ export default function ReportsScreen() {
 
     const screenWidth = Dimensions.get('window').width;
 
-    const processTransactionTrendData = () => {
+    const filteredTransactionsByAccount = useMemo(() => {
+        if (!selectedAccount) {
+            return transactions;
+        }
+        return transactions.filter(tx => tx.accountId === selectedAccount.id);
+    }, [transactions, selectedAccount]);
+
+    const processTransactionTrendData = useCallback(() => {
         const now = new Date();
         let interval;
         let dateFormat;
@@ -108,9 +92,9 @@ export default function ReportsScreen() {
         const incomeDataset = new Array(labels.length).fill(0);
         const expenseDataset = new Array(labels.length).fill(0);
 
-        transactions.forEach((t: Transaction) => {
+        filteredTransactionsByAccount.forEach((t: Transaction) => {
             if (t.date) {
-                const transactionDate = t.date.toDate();
+                const transactionDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
                 let index = -1;
 
                 if (timeRange === 'Weekly' || timeRange === 'Monthly') {
@@ -123,7 +107,7 @@ export default function ReportsScreen() {
                     if (t.type === 'income') {
                         incomeDataset[index] += t.amount;
                     } else {
-                        expenseDataset[index] += t.amount;
+                        expenseDataset[index] += Math.abs(t.amount); // Use Math.abs for expenses
                     }
                 }
             }
@@ -137,16 +121,16 @@ export default function ReportsScreen() {
             ],
             legend: ["Income", "Expenses"]
         };
-    };
+    }, [filteredTransactionsByAccount, timeRange, colors]);
 
-    const processExpenseCategoryData = () => {
+    const processExpenseCategoryData = useCallback(() => {
         const expenseData: { [key: string]: number } = {};
-        transactions.filter(t => t.type === 'expense').forEach(t => {
-            expenseData[t.category] = (expenseData[t.category] || 0) + t.amount;
+        filteredTransactionsByAccount.filter(t => t.type === 'expense').forEach(t => {
+            expenseData[t.category] = (expenseData[t.category] || 0) + Math.abs(t.amount); // Use Math.abs
         });
 
         const data = Object.keys(expenseData).map((category, index) => {
-            const colorPalette = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+            const colorPalette = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#8A2BE2', '#7FFF00', '#DC143C', '#00FFFF'];
             return {
                 name: category,
                 population: expenseData[category],
@@ -156,7 +140,7 @@ export default function ReportsScreen() {
             };
         });
         return data;
-    };
+    }, [filteredTransactionsByAccount, colors]);
 
     const { totalIncome, totalExpense, netSavings, savingsRate, monthlySpendingComparison } = useMemo(() => {
         const now = new Date();
@@ -164,50 +148,54 @@ export default function ReportsScreen() {
         const lastMonthStart = startOfMonth(subMonths(now, 1));
         const lastMonthEnd = endOfMonth(subMonths(now, 1));
 
-        const currentMonthTransactions = transactions.filter(t => t.date.toDate() >= currentMonthStart);
-        const lastMonthTransactions = transactions.filter(t => {
-            const transactionDate = t.date.toDate();
+        const currentMonthTransactions = filteredTransactionsByAccount.filter(t => {
+            const transactionDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
+            return transactionDate >= currentMonthStart;
+        });
+        const lastMonthTransactions = filteredTransactionsByAccount.filter(t => {
+            const transactionDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
             return transactionDate >= lastMonthStart && transactionDate <= lastMonthEnd;
         });
 
-        const totalIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-        const totalExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-        const lastMonthExpense = lastMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        const currentMonthIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const currentMonthExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        const lastMonthExpense = lastMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-        const netSavings = totalIncome - totalExpense;
-        const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0;
+        const netSavings = currentMonthIncome - currentMonthExpense;
+        const savingsRate = currentMonthIncome > 0 ? (netSavings / currentMonthIncome) * 100 : 0;
 
         return {
-            totalIncome,
-            totalExpense,
+            totalIncome: currentMonthIncome,
+            totalExpense: currentMonthExpense,
             netSavings,
             savingsRate,
-            monthlySpendingComparison: { currentMonth: totalExpense, lastMonth: lastMonthExpense }
+            monthlySpendingComparison: { currentMonth: currentMonthExpense, lastMonth: lastMonthExpense }
         };
-    }, [transactions]);
+    }, [filteredTransactionsByAccount]);
 
-    if (loading) {
-        return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, justifyContent: 'center' }} />;
+    if (transactionsLoading) {
+        return <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />;
     }
 
-    if (error) {
+    if (transactionsError) {
         return (
-            <View style={styles.container}>
-                <Text style={{ color: colors.danger, textAlign: 'center', marginTop: 20 }}>{error}</Text>
+            <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>Error loading transactions: {transactionsError}</Text>
             </View>
         );
     }
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Reports</Text>
-            </View>
+        <SafeAreaView style={styles.container}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>Reports</Text>
+                </View>
 
-            <View style={styles.accountSelectorContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {/* Account Selector */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.accountSelectorContainer}>
                     <TouchableOpacity
-                        key="all-accounts-button"
                         style={[styles.accountButton, !selectedAccount && styles.activeAccountButton]}
                         onPress={() => setSelectedAccount(null)}
                     >
@@ -219,88 +207,119 @@ export default function ReportsScreen() {
                             style={[styles.accountButton, selectedAccount?.id === account.id && styles.activeAccountButton]}
                             onPress={() => setSelectedAccount(account)}
                         >
-                            <Text style={[styles.accountButtonText, selectedAccount?.id === account.id && styles.activeAccountButtonText]}>{account.accountName}</Text>
+                            <Text style={[styles.accountButtonText, selectedAccount?.id === account.id && styles.activeAccountButtonText]}>{account.institution}</Text>
                         </TouchableOpacity>
                     ))}
                 </ScrollView>
-            </View>
 
-            <View style={styles.metricsContainer}>
-                <View style={styles.metricRow}>
+                {/* Time Range Filter */}
+                <View style={styles.filterContainer}>
+                    {(['Weekly', 'Monthly', 'Yearly'] as TimeRange[]).map(range => (
+                        <TouchableOpacity
+                            key={range}
+                            style={[styles.filterButton, timeRange === range && styles.activeFilterButton]}
+                            onPress={() => setTimeRange(range)}
+                        >
+                            <Text style={[styles.filterButtonText, timeRange === range && styles.activeFilterButtonText]}>
+                                {range}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                {/* Metrics Overview */}
+                <View style={styles.metricsContainer}>
                     <View style={styles.metricCard}>
                         <Text style={styles.metricLabel}>Total Income</Text>
-                        <Text style={[styles.metricValue, styles.incomeText]}>${totalIncome.toLocaleString()}</Text>
+                        <Text style={[styles.metricValue, styles.incomeText]}>${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                     </View>
                     <View style={styles.metricCard}>
                         <Text style={styles.metricLabel}>Total Expenses</Text>
-                        <Text style={[styles.metricValue, styles.expenseText]}>${totalExpense.toLocaleString()}</Text>
+                        <Text style={[styles.metricValue, styles.expenseText]}>${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                     </View>
-                </View>
-                <View style={styles.metricRow}>
                     <View style={styles.metricCard}>
                         <Text style={styles.metricLabel}>Net Savings</Text>
-                        <Text style={[styles.metricValue, netSavings >= 0 ? styles.incomeText : styles.expenseText]}>${netSavings.toLocaleString()}</Text>
+                        <Text style={[styles.metricValue, netSavings >= 0 ? styles.incomeText : styles.expenseText]}>${netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                     </View>
                     <View style={styles.metricCard}>
                         <Text style={styles.metricLabel}>Savings Rate</Text>
                         <Text style={styles.savingsRateText}>{savingsRate.toFixed(2)}%</Text>
                     </View>
                 </View>
-            </View>
 
-            <View style={styles.comparisonContainer}>
-                <Text style={styles.chartTitle}>Monthly Spending Comparison</Text>
-                <Text style={styles.comparisonText}>
-                    Last Month: ${monthlySpendingComparison.lastMonth.toLocaleString()} | This Month: ${monthlySpendingComparison.currentMonth.toLocaleString()}
-                </Text>
-            </View>
+                {/* Monthly Spending Comparison */}
+                <View style={styles.chartCard}>
+                    <Text style={styles.chartTitle}>Monthly Spending Comparison</Text>
+                    {monthlySpendingComparison.currentMonth > 0 || monthlySpendingComparison.lastMonth > 0 ? (
+                        <BarChart
+                            data={{
+                                labels: ['Last Month', 'This Month'],
+                                datasets: [
+                                    { data: [monthlySpendingComparison.lastMonth, monthlySpendingComparison.currentMonth], colors: [(opacity = 1) => colors.warning, (opacity = 1) => colors.danger] }
+                                ],
+                            }}
+                            width={screenWidth - 60} // Adjusted for padding
+                            height={200}
+                            chartConfig={{
+                                ...chartConfig,
+                                backgroundGradientFrom: colors.card,
+                                backgroundGradientTo: colors.card,
+                                color: (opacity = 1) => colors.text,
+                                barPercentage: 0.5,
+                            }}
+                            showValuesOnTopOfBars={true}
+                            fromZero={true}
+                        />
+                    ) : (
+                        <Text style={styles.emptyChartText}>No spending data for comparison.</Text>
+                    )}
+                </View>
 
-            <View style={styles.filterContainer}>
-                {(['Weekly', 'Monthly', 'Yearly'] as TimeRange[]).map(range => (
-                    <TouchableOpacity
-                        key={range}
-                        style={[styles.filterButton, timeRange === range && styles.activeFilterButton]}
-                        onPress={() => setTimeRange(range)}
-                    >
-                        <Text style={[styles.filterButtonText, timeRange === range && styles.activeFilterButtonText]}>
-                            {range}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
+                {/* Financial Trend Chart */}
+                <View style={styles.chartCard}>
+                    <Text style={styles.chartTitle}>{timeRange} Financial Trend</Text>
+                    {filteredTransactionsByAccount.length > 0 ? (
+                        <LineChart
+                            data={processTransactionTrendData()}
+                            width={screenWidth - 60} // Adjusted for padding
+                            height={250}
+                            chartConfig={{
+                                ...chartConfig,
+                                backgroundGradientFrom: colors.card,
+                                backgroundGradientTo: colors.card,
+                                color: (opacity = 1) => colors.text,
+                            }}
+                            bezier
+                        />
+                    ) : (
+                        <Text style={styles.emptyChartText}>No transaction data to display trend.</Text>
+                    )}
+                </View>
 
-            <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>{timeRange} Financial Trend</Text>
-                {transactions.length > 0 ? (
-                    <LineChart
-                        data={processTransactionTrendData()}
-                        width={screenWidth - 32}
-                        height={250}
-                        chartConfig={chartConfig}
-                        bezier
-                    />
-                ) : (
-                    <Text style={styles.emptyStateText}>No transaction data to display trend.</Text>
-                )}
-            </View>
-
-            <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>Expense Categories</Text>
-                {transactions.filter(t => t.type === 'expense').length > 0 ? (
-                    <PieChart
-                        data={processExpenseCategoryData()}
-                        width={screenWidth - 32}
-                        height={220}
-                        chartConfig={chartConfig}
-                        accessor="population"
-                        backgroundColor="transparent"
-                        paddingLeft="15"
-                        absolute
-                    />
-                ) : (
-                    <Text style={styles.emptyStateText}>No expense data to display categories.</Text>
-                )}
-            </View>
-        </ScrollView>
+                {/* Expense Categories Pie Chart */}
+                <View style={styles.chartCard}>
+                    <Text style={styles.chartTitle}>Expense Categories</Text>
+                    {filteredTransactionsByAccount.filter(t => t.type === 'expense').length > 0 ? (
+                        <PieChart
+                            data={processExpenseCategoryData()}
+                            width={screenWidth - 60} // Adjusted for padding
+                            height={220}
+                            chartConfig={{
+                                ...chartConfig,
+                                backgroundGradientFrom: colors.card,
+                                backgroundGradientTo: colors.card,
+                                color: (opacity = 1) => colors.text,
+                            }}
+                            accessor="population"
+                            backgroundColor="transparent"
+                            paddingLeft="15"
+                            absolute
+                        />
+                    ) : (
+                        <Text style={styles.emptyChartText}>No expense data to display categories.</Text>
+                    )}
+                </View>
+            </ScrollView>
+        </SafeAreaView>
     );
-} 
+}

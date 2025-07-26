@@ -1,5 +1,3 @@
-
-
 import { StyleSheet } from 'react-native';
 import { Colors } from '../constants/Colors';
 
@@ -10,102 +8,173 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  flatListContentContainer: {
+    paddingBottom: 80, // Space for FAB
+  },
   header: {
-    padding: 20,
-    paddingTop: 50,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: colors.text,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 10,
-    margin: 20,
-    paddingHorizontal: 10,
+  addVaultButtonHeader: {
+    padding: 5,
   },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
     color: colors.text,
-    height: 40,
-  },
-  content: {
     paddingHorizontal: 20,
+    marginTop: 25,
+    marginBottom: 15,
   },
-  accountSelector: {
-    marginBottom: 20,
+  accountsListContainer: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
   },
   accountCard: {
     backgroundColor: colors.card,
     borderRadius: 15,
-    padding: 20,
-    marginRight: 15,
+    padding: 15,
+    marginHorizontal: 5,
+    width: 150, // Adjusted width for horizontal scroll
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
     borderWidth: 1,
     borderColor: colors.border,
-    width: 150,
-    height: 150,
   },
   selectedAccountCard: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   accountName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 10,
-  },
-  accountBalance: {
-    fontSize: 14,
-    color: colors.secondaryText,
-    marginTop: 5,
-  },
-  selectedAccountText: {
-    color: '#fff',
-  },
-  sectionTitle: {
-    fontSize: 22,
+    fontSize: 15,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 15,
+    textAlign: 'center',
+    marginTop: 8,
   },
-  vaultCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  accountBalance: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginTop: 5,
+  },
+  summaryCard: {
     backgroundColor: colors.card,
-    borderRadius: 10,
-    padding: 15,
+    borderRadius: 15,
+    padding: 20,
+    marginHorizontal: 20,
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  summaryLabel: {
+    fontSize: 16,
+    color: colors.secondaryText,
+    marginBottom: 5,
+  },
+  summaryValue: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: colors.primary,
     marginBottom: 10,
   },
-  vaultInfo: {
+  progressBarContainer: {
+    height: 10,
+    backgroundColor: colors.separator,
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginTop: 10,
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: colors.success,
+    borderRadius: 5,
+  },
+  progressText: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    textAlign: 'right',
+    marginTop: 5,
+  },
+  vaultCard: {
+    backgroundColor: colors.card,
+    borderRadius: 15,
+    padding: 15,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  vaultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  vaultIconContainer: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: colors.iconBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  vaultTitleContainer: {
     flex: 1,
-    marginLeft: 15,
   },
   vaultName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.text,
   },
-  vaultAmount: {
-    fontSize: 14,
+  vaultDeadline: {
+    fontSize: 12,
     color: colors.secondaryText,
-    marginTop: 4,
+  },
+  vaultAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 10,
   },
   vaultActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+    justifyContent: 'space-around',
+    marginTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: colors.separator,
+    paddingTop: 15,
   },
-  newVaultButton: {
+  actionButton: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    color: colors.secondaryText,
+    marginTop: 5,
+  },
+  fab: {
     position: 'absolute',
     bottom: 30,
     right: 20,
@@ -125,12 +194,20 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 40,
+    marginHorizontal: 20,
+    backgroundColor: colors.card,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
   },
   emptyVaultsText: {
     textAlign: 'center',
     color: colors.secondaryText,
     marginBottom: 20,
-    fontStyle: 'italic',
+    fontSize: 16,
   },
   newVaultButtonInline: {
     flexDirection: 'row',
@@ -170,6 +247,8 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 10,
     marginBottom: 15,
     paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   inputIcon: {
     marginRight: 10,
@@ -178,6 +257,7 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     color: colors.text,
     height: 50,
+    fontSize: 16,
   },
   modalButtonContainer: {
     flexDirection: 'row',
@@ -205,25 +285,41 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  depositAmountText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 20,
-  },
-  skeletonContainer: {
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
-  },
-  skeletonVaultCard: {
-    backgroundColor: colors.card,
-    borderRadius: 10,
-    height: 100,
-    marginBottom: 10,
-    opacity: 0.5,
   },
   errorText: {
     color: colors.danger,
     textAlign: 'center',
     marginTop: 20,
   },
-}); 
+  emptyStateCard: {
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    padding: 20,
+    marginHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: colors.secondaryText,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  linkAccountText: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: 'bold',
+  },
+});

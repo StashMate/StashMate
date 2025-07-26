@@ -1,126 +1,73 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { collection, doc, limit, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore';
-import React, { ComponentProps, useEffect, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import React, { ComponentProps, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Image,
-  Modal,
   SafeAreaView,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
-import { financialQuotes } from '../../data/quotes';
-import { db, setCategoryBudget, trackBudget } from '../../firebase';
-import { useNetBalance } from '../../hooks/useNetBalance';
+import { useSavings } from '../../context/SavingsContext';
+import { useTransactions } from '../../context/TransactionsContext';
 import { getDashboardStyles } from '../../styles/dashboard.styles';
+import { useNetBalance } from '../../hooks/useNetBalance';
 
-type IconName = ComponentProps<typeof Ionicons>['name'];
-
-interface Transaction {
-  id: string;
-  name: string;
-  amount: number;
-  category: string;
-  type: 'income' | 'expense';
-  date: Timestamp;
-}
-
-interface UserData {
-  streak?: number;
-  // Add other user properties as needed
-}
-
-type Quote = {
-  q: string;
-  a: string;
-};
+type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 export default function DashboardScreen() {
   const { colors } = useTheme();
   const dashboardStyles = getDashboardStyles(colors);
   const router = useRouter();
   const { user } = useUser();
+  const { accounts, vaults, loading: savingsLoading, error: savingsError } = useSavings();
+  const { transactions, refreshTransactions, loading: transactionsLoading, error: transactionsError } = useTransactions();
   const { netBalance, loading: netBalanceLoading, error: netBalanceError } = useNetBalance();
 
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [quote, setQuote] = useState<Quote | null>(null);
-  const [budgets, setBudgets] = useState<any[]>([]);
-  const [isBudgetModalVisible, setBudgetModalVisible] = useState(false);
-  const [newBudget, setNewBudget] = useState({ category: '', amount: '' });
-  const [isAddBudgetVisible, setAddBudgetVisible] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh transactions when dashboard is focused
+      refreshTransactions();
+    }, [refreshTransactions])
+  );
 
-  useEffect(() => {
-    if (!user) return;
+  const isLoading = savingsLoading || transactionsLoading || netBalanceLoading;
+  const hasError = savingsError || transactionsError || netBalanceError;
 
-    // Fetch user data for streak
-    const userDocRef = doc(db, 'users', user.uid);
-    const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
-      if (doc.exists()) {
-        setUserData(doc.data() as UserData);
+  const recentTransactions = useMemo(() => {
+    return transactions.slice(0, 5); // Get top 5 recent transactions
+  }, [transactions]);
+
+  const totalIncomeThisMonth = useMemo(() => {
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    return transactions.reduce((sum, tx) => {
+      const txDate = new Date(tx.date as string);
+      if (tx.type === 'income' && txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
+        return sum + tx.amount;
       }
-      setLoading(false);
-    });
+      return sum;
+    }, 0);
+  }, [transactions]);
 
-    // Fetch budgets
-    const fetchBudgets = async () => {
-      const categories = ['Dining', 'Groceries', 'Transport']; // Example categories
-      const budgetData = await Promise.all(
-        categories.map(category => trackBudget(user.uid, category))
-      );
-      setBudgets(budgetData.filter(b => b.success));
-    };
+  const totalExpenseThisMonth = useMemo(() => {
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    return transactions.reduce((sum, tx) => {
+      const txDate = new Date(tx.date as string);
+      if (tx.type === 'expense' && txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
+        return sum + Math.abs(tx.amount); // Use Math.abs because expenses are stored as negative
+      }
+      return sum;
+    }, 0);
+  }, [transactions]);
 
-    fetchBudgets();
-
-    // Fetch recent transactions
-    const transactionsQuery = query(
-      collection(db, 'transactions'),
-      where('userId', '==', user.uid),
-      orderBy('date', 'desc'),
-      limit(3)
-    );
-    const unsubscribeTransactions = onSnapshot(transactionsQuery, (snapshot) => {
-      const transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Transaction[];
-      setRecentTransactions(transactions);
-    });
-
-    return () => {
-      unsubscribeUser();
-      unsubscribeTransactions();
-    };
-  }, [user]);
-
-  const handleSetBudget = async () => {
-    if (user && newBudget.category && newBudget.amount) {
-      await setCategoryBudget(user.uid, newBudget.category, parseFloat(newBudget.amount));
-      setBudgetModalVisible(false);
-      // Refresh budgets
-      const budgetData = await Promise.all(
-        [...budgets.map(b => b.category), newBudget.category].map(category => trackBudget(user.uid, category))
-      );
-      setBudgets(budgetData.filter(b => b.success));
-      setNewBudget({ category: '', amount: '' });
-    }
-  };
-
-  const fetchQuote = () => {
-    const randomIndex = Math.floor(Math.random() * financialQuotes.length);
-    setQuote(financialQuotes[randomIndex]);
-  };
-
-  useEffect(() => {
-    fetchQuote();
-  }, []);
-
-  if (loading || netBalanceLoading) {
+  if (isLoading) {
     return (
       <SafeAreaView style={dashboardStyles.container}>
         <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1 }} />
@@ -128,247 +75,158 @@ export default function DashboardScreen() {
     );
   }
 
+  if (hasError) {
+    return (
+      <SafeAreaView style={dashboardStyles.container}>
+        <View style={dashboardStyles.errorContainer}>
+          <Text style={dashboardStyles.errorText}>Error loading dashboard data.</Text>
+          <Text style={dashboardStyles.errorText}>{hasError}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={dashboardStyles.container}>
-      <ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Header */}
         <View style={dashboardStyles.header}>
           <Image
-            source={{ uri: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }}
+            source={{ uri: user?.photoURL || 'https://i.pravatar.cc/150?u=a042581f4e29026704d' }} // Use user's photo or a placeholder
             style={dashboardStyles.profileImage}
           />
-          <Text style={dashboardStyles.headerTitle}>StashMate</Text>
+          <Text style={dashboardStyles.greeting}>Hello, {user?.displayName || 'User'}!</Text>
           <TouchableOpacity onPress={() => router.push('/notifications')}>
             <Ionicons name="notifications-outline" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
-        <View style={dashboardStyles.card}>
-            <Text style={dashboardStyles.title}>Net Balance</Text>
-            <Text style={[dashboardStyles.balance, netBalance < 0 && dashboardStyles.negativeBalance]}>${netBalance.toLocaleString()}</Text>
-            <Text style={dashboardStyles.lastUpdated}>Last updated: {new Date().toLocaleDateString()}</Text>
-        </View>
-
-        <View style={dashboardStyles.summaryCardsContainer}>
-            <TouchableOpacity style={dashboardStyles.summaryCard} onPress={() => setBudgetModalVisible(true)}>
-                <Ionicons name="wallet-outline" size={28} color={colors.link} />
-                <Text style={dashboardStyles.summaryCardTitle}>Budget</Text>
-                <Text style={dashboardStyles.summaryCardValue}>View Budgets</Text>
-            </TouchableOpacity>
-            <View style={dashboardStyles.summaryCard}>
-                <Ionicons name="flame-outline" size={28} color={colors.link} />
-                <Text style={dashboardStyles.summaryCardTitle}>Savings Streak</Text>
-                <Text style={dashboardStyles.summaryCardValue}>{userData?.streak || 0} days</Text>
+        {/* Net Worth Overview */}
+        <View style={dashboardStyles.netWorthCard}>
+          <Text style={dashboardStyles.netWorthLabel}>Total Net Balance</Text>
+          <Text style={[dashboardStyles.netWorthAmount, netBalance < 0 ? dashboardStyles.negativeNetWorth : dashboardStyles.positiveNetWorth]}>
+            ${netBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
+          <View style={dashboardStyles.summaryRow}>
+            <View style={dashboardStyles.summaryItem}>
+              <Text style={dashboardStyles.summaryLabel}>Income this month</Text>
+              <Text style={[dashboardStyles.summaryValue, dashboardStyles.positiveNetWorth]}>${totalIncomeThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
             </View>
+            <View style={dashboardStyles.summaryItem}>
+              <Text style={dashboardStyles.summaryLabel}>Expenses this month</Text>
+              <Text style={[dashboardStyles.summaryValue, dashboardStyles.negativeNetWorth]}>${totalExpenseThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+            </View>
+          </View>
         </View>
 
-        <View style={dashboardStyles.quoteCard}>
-          <Ionicons name="bulb-outline" size={24} color={colors.secondaryText} style={dashboardStyles.quoteIcon} />
-          {quote ? (
-            <>
-              <Text style={dashboardStyles.quoteText}>"{quote.q}"</Text>
-              <Text style={dashboardStyles.quoteAuthor}>- {quote.a}</Text>
-            </>
-          ) : (
-            <Text style={dashboardStyles.quoteText}>Loading quote...</Text>
-          )}
-          <TouchableOpacity onPress={fetchQuote} style={dashboardStyles.refreshButton}>
-            <Ionicons name="refresh-outline" size={20} color={colors.primary} />
+        {/* Quick Actions */}
+        <View style={dashboardStyles.quickActionsContainer}>
+          <TouchableOpacity style={dashboardStyles.quickActionButton} onPress={() => router.push('/addTransaction')}>
+            <Ionicons name="add-circle-outline" size={28} color={colors.primary} />
+            <Text style={dashboardStyles.quickActionButtonText}>Add Transaction</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={dashboardStyles.quickActionButton} onPress={() => router.push('/addVault')}>
+            <Ionicons name="wallet-outline" size={28} color={colors.primary} />
+            <Text style={dashboardStyles.quickActionButtonText}>Add Vault</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={dashboardStyles.quickActionButton} onPress={() => router.push('/linkBank')}>
+            <Ionicons name="link-outline" size={28} color={colors.primary} />
+            <Text style={dashboardStyles.quickActionButtonText}>Link Account</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={dashboardStyles.sectionTitle}>Recent Transactions</Text>
-        {recentTransactions.map((item, index) => (
-          <TouchableOpacity key={index} style={dashboardStyles.transactionItem} onPress={() => router.push('/(tabs)/transactions')}>
-            <View style={dashboardStyles.transactionIcon}>
-              <MaterialCommunityIcons name={"bank-transfer"} size={24} color={colors.primary} />
-            </View>
-            <View style={dashboardStyles.transactionDetails}>
-              <Text style={dashboardStyles.transactionName}>{item.name}</Text>
-              <Text style={dashboardStyles.transactionCategory}>{item.category}</Text>
-            </View>
-            <Text style={[dashboardStyles.transactionAmount, item.type === 'expense' ? dashboardStyles.expense : dashboardStyles.income]}>
-              {item.type === 'expense' ? '-' : '+'}${item.amount.toFixed(2)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        <Text style={dashboardStyles.sectionTitle}>Savings Overview</Text>
-        <TouchableOpacity style={dashboardStyles.transactionItem} onPress={() => router.push('/(tabs)/savings')}>
-          <View style={dashboardStyles.transactionIcon}>
-            <MaterialCommunityIcons name="bank-outline" size={24} color={colors.primary} />
-          </View>
-          <View style={dashboardStyles.transactionDetails}>
-            <Text style={dashboardStyles.transactionName}>Total Savings</Text>
-          </View>
-        </TouchableOpacity>
-      </ScrollView>
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isBudgetModalVisible}
-        onRequestClose={() => {
-          setBudgetModalVisible(false);
-          setAddBudgetVisible(false);
-        }}
-      >
-        <View style={dashboardStyles.modalContainer}>
-          <View style={dashboardStyles.modalContent}>
-            {isAddBudgetVisible ? (
-              <>
-                <View style={dashboardStyles.modalHeader}>
-                  <Text style={dashboardStyles.modalTitle}>Set New Budget</Text>
-                  <TouchableOpacity onPress={() => setAddBudgetVisible(false)}>
-                    <Ionicons name="close-outline" size={24} color={colors.text} />
-                  </TouchableOpacity>
-                </View>
-                <View style={dashboardStyles.inputContainer}>
-                  <Text style={dashboardStyles.inputLabel}>Category</Text>
-                  <View style={dashboardStyles.enhancedInput}>
-                    <Ionicons name="pricetag-outline" size={20} color={colors.primary} style={dashboardStyles.inputIcon} />
-                    <TextInput
-                      style={dashboardStyles.textInput}
-                      placeholder="e.g., Dining"
-                      placeholderTextColor={colors.secondaryText}
-                      value={newBudget.category}
-                      onChangeText={(text) => setNewBudget({ ...newBudget, category: text })}
-                    />
-                  </View>
-                </View>
-                <View style={dashboardStyles.inputContainer}>
-                  <Text style={dashboardStyles.inputLabel}>Monthly Budget</Text>
-                  <View style={dashboardStyles.enhancedInput}>
-                    <Ionicons name="cash-outline" size={20} color={colors.primary} style={dashboardStyles.inputIcon} />
-                    <TextInput
-                      style={dashboardStyles.textInput}
-                      keyboardType="numeric"
-                      placeholder="e.g., 400"
-                      placeholderTextColor={colors.secondaryText}
-                      value={newBudget.amount}
-                      onChangeText={(text) => setNewBudget({ ...newBudget, amount: text })}
-                    />
-                  </View>
-                </View>
-                <View style={dashboardStyles.modalActions}>
-                  <TouchableOpacity style={[dashboardStyles.modalButton, dashboardStyles.cancelButton]} onPress={() => setAddBudgetVisible(false)}>
-                    <Text style={dashboardStyles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[dashboardStyles.modalButton, dashboardStyles.saveButton]} onPress={handleSetBudget}>
-                    <Text style={dashboardStyles.saveButtonText}>Set Budget</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                <View style={dashboardStyles.modalHeader}>
-                  <Text style={dashboardStyles.modalTitle}>Budgets</Text>
-                  <TouchableOpacity onPress={() => setBudgetModalVisible(false)}>
-                    <Ionicons name="close-outline" size={24} color={colors.text} />
-                  </TouchableOpacity>
-                </View>
-                
-                {budgets.length === 0 ? (
-                  <View style={dashboardStyles.emptyStateContainer}>
-                    <Ionicons name="wallet-outline" size={60} color={colors.secondaryText} />
-                    <Text style={dashboardStyles.emptyStateText}>No budgets set yet</Text>
-                    <Text style={dashboardStyles.emptyStateSubText}>Create your first budget to track spending</Text>
-                  </View>
-                ) : (
-                  <ScrollView style={dashboardStyles.budgetList}>
-                    {budgets.map((item, index) => (
-                      <View key={index} style={dashboardStyles.budgetItem}>
-                        <View style={dashboardStyles.budgetHeader}>
-                          <View style={dashboardStyles.categoryContainer}>
-                            <View style={[dashboardStyles.categoryIcon, { backgroundColor: getBudgetCategoryColor(item.category, colors) }]}>
-                              <Ionicons name={getBudgetCategoryIcon(item.category)} size={16} color="#fff" />
-                            </View>
-                            <Text style={dashboardStyles.budgetCategory}>{item.category}</Text>
-                          </View>
-                          <Text style={dashboardStyles.budgetValues}>
-                            <Text style={item.progress >= 1 ? dashboardStyles.danger : item.progress >= 0.8 ? dashboardStyles.warning : dashboardStyles.success}>
-                              ${item.spentAmount.toFixed(2)}
-                            </Text> / ${item.budgetAmount.toFixed(2)}
-                          </Text>
-                        </View>
-                        <View style={dashboardStyles.progressBarContainer}>
-                          <View 
-                            style={[
-                              dashboardStyles.progressBar, 
-                              { 
-                                width: `${Math.min(item.progress * 100, 100)}%`, 
-                                backgroundColor: item.progress >= 1 ? colors.danger : item.progress >= 0.8 ? colors.warning : colors.success 
-                              }
-                            ]} 
-                          />
-                        </View>
-                        <View style={dashboardStyles.budgetFooter}>
-                          {item.warning && (
-                            <Text style={item.progress >= 1 ? dashboardStyles.dangerText : dashboardStyles.warningText}>
-                              <Ionicons 
-                                name={item.progress >= 1 ? "alert-circle" : "alert-triangle"} 
-                                size={14} 
-                                color={item.progress >= 1 ? colors.danger : colors.warning} 
-                              /> {item.warning}
-                            </Text>
-                          )}
-                          <Text style={dashboardStyles.remainingText}>
-                            {item.progress < 1 ? 
-                              `$${(item.budgetAmount - item.spentAmount).toFixed(2)} remaining` : 
-                              `$${(item.spentAmount - item.budgetAmount).toFixed(2)} over budget`}
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
-                  </ScrollView>
-                )}
-                
-                <TouchableOpacity 
-                  style={[dashboardStyles.addBudgetButton]} 
-                  onPress={() => setAddBudgetVisible(true)}
-                >
-                  <Ionicons name="add-circle-outline" size={20} color={colors.background} />
-                  <Text style={dashboardStyles.addBudgetButtonText}>Add Budget</Text>
-                </TouchableOpacity>
-              </>
+        {/* Accounts Overview */}
+        <Text style={dashboardStyles.sectionTitle}>Your Accounts</Text>
+        {accounts.length > 0 ? (
+          <FlatList
+            data={accounts}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item: account }) => (
+              <View style={dashboardStyles.accountCard}>
+                <Image source={{ uri: account.logoUrl }} style={dashboardStyles.accountLogo} />
+                <Text style={dashboardStyles.accountName}>{account.institution}</Text>
+                <Text style={dashboardStyles.accountBalance}>${account.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                <Text style={dashboardStyles.accountType}>{account.accountName}</Text>
+              </View>
             )}
+          />
+        ) : (
+          <View style={dashboardStyles.emptyStateCard}>
+            <Text style={dashboardStyles.emptyStateText}>No accounts linked yet.</Text>
+            <TouchableOpacity onPress={() => router.push('/linkBank')}>
+              <Text style={dashboardStyles.linkAccountText}>Link your first account!</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+        )}
+
+        {/* Recent Transactions */}
+        <Text style={dashboardStyles.sectionTitle}>Recent Transactions</Text>
+        {recentTransactions.length > 0 ? (
+          recentTransactions.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[dashboardStyles.transactionItem, item.amount > 0 ? dashboardStyles.incomeBorder : dashboardStyles.expenseBorder]}
+              onPress={() => router.push('/transactions')}
+            >
+              <View style={dashboardStyles.transactionIcon}>
+                <MaterialCommunityIcons name={item.icon || "bank-transfer"} size={24} color={colors.primary} />
+              </View>
+              <View style={dashboardStyles.transactionDetails}>
+                <Text style={dashboardStyles.transactionName}>{item.name}</Text>
+                <Text style={dashboardStyles.transactionCategory}>{item.category}</Text>
+              </View>
+              <Text style={[dashboardStyles.transactionAmount, item.amount > 0 ? dashboardStyles.incomeText : dashboardStyles.expenseText]}>
+                {item.amount > 0 ? '+' : '-'}${Math.abs(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={dashboardStyles.emptyStateCard}>
+            <Text style={dashboardStyles.emptyStateText}>No recent transactions.</Text>
+            <TouchableOpacity onPress={() => router.push('/addTransaction')}>
+              <Text style={dashboardStyles.linkAccountText}>Add your first transaction!</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Savings Goals/Vaults */}
+        <Text style={dashboardStyles.sectionTitle}>Savings Goals</Text>
+        {vaults.length > 0 ? (
+          vaults.map((vault) => (
+            <TouchableOpacity
+              key={vault.id}
+              style={dashboardStyles.vaultItem}
+              onPress={() => router.push(`/investment/${vault.id}`)} // Assuming a detail page for vaults
+            >
+              <View style={dashboardStyles.vaultDetails}>
+                <Ionicons name={vault.icon || "cube-outline"} size={24} color={colors.primary} />
+                <View style={{ marginLeft: 10 }}>
+                  <Text style={dashboardStyles.vaultName}>{vault.name}</Text>
+                  <Text style={dashboardStyles.vaultProgressText}>${vault.currentAmount.toLocaleString()} / ${vault.targetAmount.toLocaleString()}</Text>
+                </View>
+              </View>
+              <View style={dashboardStyles.progressBarContainer}>
+                <View
+                  style={[
+                    dashboardStyles.progressBar,
+                    { width: `${(vault.currentAmount / vault.targetAmount) * 100}%` },
+                  ]}
+                />
+              </View>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={dashboardStyles.emptyStateCard}>
+            <Text style={dashboardStyles.emptyStateText}>No savings goals set.</Text>
+            <TouchableOpacity onPress={() => router.push('/addVault')}>
+              <Text style={dashboardStyles.linkAccountText}>Create your first savings goal!</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+      </ScrollView>
     </SafeAreaView>
   );
 }
-
-
-// Helper functions for budget categories
-const getBudgetCategoryIcon = (category: string): IconName => {
-const categoryMap: Record<string, IconName> = {
-'Dining': 'restaurant-outline',
-'Groceries': 'cart-outline',
-'Transport': 'car-outline',
-'Entertainment': 'film-outline',
-'Shopping': 'bag-outline',
-'Utilities': 'flash-outline',
-'Housing': 'home-outline',
-'Healthcare': 'medical-outline',
-'Education': 'school-outline',
-'Travel': 'airplane-outline',
-};
-
-return categoryMap[category] || 'pricetag-outline';
-};
-
-const getBudgetCategoryColor = (category: string, colors: ThemeColors): string => {
-const categoryMap: Record<string, string> = {
-'Dining': '#FF6B6B',
-'Groceries': '#4ECDC4',
-'Transport': '#FFD166',
-'Entertainment': '#9D65C9',
-'Shopping': '#FF9F1C',
-'Utilities': '#5D8CAE',
-'Housing': '#6B5CA5',
-'Healthcare': '#72A276',
-'Education': '#5D8CAE',
-'Travel': '#FF9A76',
-};
-
-return categoryMap[category] || colors.primary;
-};

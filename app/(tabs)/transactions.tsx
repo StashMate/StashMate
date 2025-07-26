@@ -1,65 +1,27 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { collection, onSnapshot, orderBy, query, Timestamp, where } from 'firebase/firestore';
-import React, { ComponentProps, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { ComponentProps, useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { useUser } from '../../context/UserContext';
-import { db, deleteTransaction } from '../../firebase';
+import { Transaction, useTransactions } from '../../context/TransactionsContext';
 import { getTransactionsStyles } from '../../styles/transactions.styles';
-import { useSavings } from '../../context/SavingsContext';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
-
-interface Transaction {
-  id: string;
-  name: string;
-  amount: number;
-  category: string;
-  paymentMethod?: string;
-  type: 'income' | 'expense';
-  date: Timestamp;
-  accountId?: string;
-}
 
 export default function TransactionsScreen() {
   const { colors } = useTheme();
   const styles = getTransactionsStyles(colors);
-  const { user } = useUser();
   const router = useRouter();
-  const { accounts, selectedAccount, setSelectedAccount } = useSavings();
+  const { transactions, refreshTransactions, loading, error, deleteTransaction } = useTransactions();
 
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      refreshTransactions();
+    }, [refreshTransactions])
+  );
+
   const [filter, setFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-
-  useEffect(() => {
-    if (!user) return;
-    setLoading(true);
-    setError(null);
-
-    const transactionsQuery = query(
-      collection(db, 'users', user.uid, 'transactions'),
-      orderBy('date', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(transactionsQuery, 
-      (snapshot) => {
-        const fetchedTransactions: Transaction[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
-        setTransactions(fetchedTransactions);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Firestore Error:", err);
-        setError("Failed to load transactions. This often requires creating a database index. Please check the developer console for a direct link to create it.");
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [user, selectedAccount]);
 
   const filteredTransactions = useMemo(() => {
     let filtered = transactions;
@@ -95,7 +57,7 @@ export default function TransactionsScreen() {
     }, { totalIncome: 0, totalExpense: 0 });
   }, [filteredTransactions]);
 
-  const handleDelete = (transactionId: string) => {
+  const handleDelete = (transactionId: string, accountId?: string | null) => {
     Alert.alert(
       'Delete Transaction',
       'Are you sure you want to delete this transaction?',
@@ -105,39 +67,43 @@ export default function TransactionsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            // Implement delete functionality if needed, but for now, we'll just log it.
-            console.log("Deleting transaction:", transactionId);
+            await deleteTransaction(transactionId, accountId);
           },
         },
       ]
     );
   };
 
-  const RenderTransactionItem = ({ item }: { item: Transaction }) => (
-    <TouchableOpacity
-      onPress={() =>
-        router.push({
-          pathname: '/editTransaction',
-          params: { transaction: JSON.stringify(item) },
-        })
-      }
-    >
-      <View style={[styles.transactionItem, item.amount > 0 ? styles.incomeBorder : styles.expenseBorder]}>
-        <View style={styles.transactionIcon}>
-          <MaterialCommunityIcons name={"bank-transfer"} size={24} color={colors.primary} />
+  const RenderTransactionItem = ({ item }: { item: Transaction }) => {
+    const transactionDate = typeof item.date === 'string' ? new Date(item.date) : (item.date as any)?.toDate();
+    const formattedDate = transactionDate ? transactionDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
+
+    return (
+      <TouchableOpacity
+        onPress={() =>
+          router.push({
+            pathname: '/editTransaction',
+            params: { transaction: JSON.stringify(item) },
+          })
+        }
+      >
+        <View style={[styles.transactionItem, item.amount > 0 ? styles.incomeBorder : styles.expenseBorder]}>
+          <View style={styles.transactionIcon}>
+            <MaterialCommunityIcons name={item.icon || "bank-transfer"} size={24} color={colors.primary} />
+          </View>
+          <View style={styles.transactionDetails}>
+            <Text style={styles.transactionName}>{item.name}</Text>
+            <Text style={styles.transactionCategory}>{item.category} - {formattedDate}</Text>
+          </View>
+          <View style={{alignItems: 'flex-end'}}>
+            <Text style={[styles.transactionAmount, item.amount > 0 ? styles.income : styles.expense]}>
+              ${Math.abs(item.amount).toFixed(2)}
+            </Text>
+          </View>
         </View>
-        <View style={styles.transactionDetails}>
-          <Text style={styles.transactionName}>{item.name}</Text>
-          <Text style={styles.transactionCategory}>{item.category}</Text>
-        </View>
-        <View style={{alignItems: 'flex-end'}}>
-          <Text style={[styles.transactionAmount, item.amount > 0 ? styles.income : styles.expense]}>
-            ${Math.abs(item.amount).toFixed(2)}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const ListHeader = () => (
     <>

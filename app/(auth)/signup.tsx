@@ -1,15 +1,12 @@
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
-import * as Google from 'expo-auth-session/providers/google';
 import { Stack, useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useUser } from '../../context/UserContext';
-import { signInWithGoogle, signUpWithEmail } from '../../firebase';
+import { signUpWithEmail } from '../../firebase';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { getAuthStyles } from '../../styles/auth.styles';
-
-WebBrowser.maybeCompleteAuthSession();
 
 export default function SignUpScreen() {
   const { colors } = useTheme();
@@ -26,36 +23,13 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_ANDROID_CLIENT_ID,
-  });
+  const { promptAsync: promptGoogleSignIn, loading: googleLoading, error: googleError } = useGoogleAuth();
 
   useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      
-      const processGoogleSignIn = async () => {
-        setLoading(true);
-        setError(null);
-
-        const result = await signInWithGoogle(id_token);
-        
-        setLoading(false);
-        
-        if (result.success && result.user) {
-          setUser({ uid: result.user.uid, email: result.user.email, displayName: result.user.displayName });
-          Alert.alert("Welcome Back!", `You've signed in successfully.`);
-          router.replace('/(tabs)/dashboard');
-        } else {
-          Alert.alert('Google Sign-In Failed', result.error);
-        }
-      };
-
-      processGoogleSignIn();
+    if (googleError) {
+      Alert.alert('Google Sign-In Failed', googleError);
     }
-  }, [response]);
+  }, [googleError]);
 
   const handleSignUp = async () => {
     if (!fullName.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
@@ -84,7 +58,7 @@ export default function SignUpScreen() {
   };
 
   const handleGoogleSignIn = () => {
-    promptAsync();
+    promptGoogleSignIn();
   };
 
   return (

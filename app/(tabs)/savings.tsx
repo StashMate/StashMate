@@ -1,17 +1,12 @@
-
-
-
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { Timestamp } from 'firebase/firestore';
-import React, { useState } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { CircularProgress } from 'react-native-circular-progress';
-import { SavingsProvider, useSavings } from '../../context/SavingsContext';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSavings } from '../../context/SavingsContext';
 import { useTheme } from '../../context/ThemeContext';
 import { addVaultDeposit, deleteVault, updateVault } from '../../firebase';
 import { getSavingsStyles } from '../../styles/savings.styles';
-import * as Haptics from 'expo-haptics';
 
 interface Vault {
     id: string;
@@ -19,10 +14,10 @@ interface Vault {
     currentAmount: number;
     targetAmount: number;
     icon: string;
-    deadline: Timestamp;
+    deadline: any; // Firebase Timestamp or string
 }
 
-const SavingsScreenContent = () => {
+export default function SavingsScreen() {
     const { colors } = useTheme();
     const styles = getSavingsStyles(colors);
     const router = useRouter();
@@ -38,14 +33,17 @@ const SavingsScreenContent = () => {
     const [depositAmount, setDepositAmount] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
-    const onRefresh = React.useCallback(() => {
+    const onRefresh = useCallback(() => {
         setRefreshing(true);
         refetch();
         setTimeout(() => setRefreshing(false), 1000);
     }, [refetch]);
 
-    const handleDeleteVault = (vaultId: string) => {
-        if (!selectedAccount) return;
+    const handleDeleteVault = async (vaultId: string) => {
+        if (!selectedAccount) {
+            Alert.alert("Error", "Please select an account first.");
+            return;
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         Alert.alert(
             "Delete Vault",
@@ -120,105 +118,152 @@ const SavingsScreenContent = () => {
         }
     };
 
-    const filteredVaults = vaults.filter(vault =>
-        vault.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredVaults = useMemo(() => {
+        return vaults.filter(vault =>
+            vault.name.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [vaults, searchQuery]);
+
+    const totalSaved = useMemo(() => {
+        return vaults.reduce((sum, vault) => sum + vault.currentAmount, 0);
+    }, [vaults]);
+
+    const totalTarget = useMemo(() => {
+        return vaults.reduce((sum, vault) => sum + vault.targetAmount, 0);
+    }, [vaults]);
+
+    const overallProgress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0;
 
     const renderVault = ({ item }: { item: Vault }) => {
         const progress = item.targetAmount > 0 ? (item.currentAmount / item.targetAmount) * 100 : 0;
+        const deadlineDate = item.deadline instanceof Timestamp ? item.deadline.toDate() : new Date(item.deadline);
+        const formattedDeadline = deadlineDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
         return (
             <View style={styles.vaultCard}>
-                <CircularProgress
-                    size={80}
-                    width={8}
-                    fill={progress}
-                    tintColor={colors.primary}
-                    backgroundColor={colors.border}
-                    rotation={0}
-                >
-                    {() => <Ionicons name={item.icon as any} size={32} color={colors.primary} />}
-                </CircularProgress>
-                <View style={styles.vaultInfo}>
-                    <Text style={styles.vaultName}>{item.name}</Text>
-                    <Text style={styles.vaultAmount}>
-                        ${item.currentAmount.toLocaleString()} / ${item.targetAmount.toLocaleString()}
-                    </Text>
+                <View style={styles.vaultHeader}>
+                    <View style={styles.vaultIconContainer}>
+                        <Ionicons name={item.icon as any} size={24} color={colors.primary} />
+                    </View>
+                    <View style={styles.vaultTitleContainer}>
+                        <Text style={styles.vaultName}>{item.name}</Text>
+                        <Text style={styles.vaultDeadline}>Due: {formattedDeadline}</Text>
+                    </View>
                 </View>
+                <Text style={styles.vaultAmount}>
+                    ${item.currentAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ${item.targetAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Text>
+                <View style={styles.progressBarContainer}>
+                    <View
+                        style={[
+                            styles.progressBar,
+                            { width: `${Math.min(progress, 100)}%` },
+                        ]}
+                    />
+                </View>
+                <Text style={styles.progressText}>{progress.toFixed(0)}% Complete</Text>
                 <View style={styles.vaultActions}>
-                    <TouchableOpacity onPress={() => handleDeposit(item)}>
-                        <Ionicons name="add-circle-outline" size={28} color={colors.primary} />
+                    <TouchableOpacity style={styles.actionButton} onPress={() => handleDeposit(item)}>
+                        <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
+                        <Text style={styles.actionButtonText}>Deposit</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleEditVault(item)}>
+                    <TouchableOpacity style={styles.actionButton} onPress={() => handleEditVault(item)}>
                         <Ionicons name="pencil-outline" size={24} color={colors.secondaryText} />
+                        <Text style={styles.actionButtonText}>Edit</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteVault(item.id)}>
+                    <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteVault(item.id)}>
                         <Ionicons name="trash-outline" size={24} color={colors.danger} />
+                        <Text style={styles.actionButtonText}>Delete</Text>
                     </TouchableOpacity>
                 </View>
             </View>
         );
     };
 
-    const renderSkeleton = () => (
-        <View style={styles.skeletonContainer}>
-            {[...Array(3)].map((_, i) => (
-                <View key={i} style={styles.skeletonVaultCard} />
-            ))}
-        </View>
-    );
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1 }} />
+            </SafeAreaView>
+        );
+    }
 
     if (error) {
         return (
-            <View style={styles.container}>
-                <Text style={styles.errorText}>{error}</Text>
-            </View>
-        )
+            <SafeAreaView style={styles.container}>
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>Error loading savings data.</Text>
+                    <Text style={styles.errorText}>{error}</Text>
+                </View>
+            </SafeAreaView>
+        );
     }
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Savings</Text>
-            </View>
-            <View style={styles.searchContainer}>
-                <Ionicons name="search" size={20} color={colors.secondaryText} style={styles.searchIcon} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search vaults..."
-                    placeholderTextColor={colors.secondaryText}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
-            </View>
+        <SafeAreaView style={styles.container}>
             <FlatList
-                data={loading ? [] : filteredVaults}
+                data={filteredVaults}
                 renderItem={renderVault}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.content}
+                contentContainerStyle={styles.flatListContentContainer}
                 ListHeaderComponent={
                     <>
-                        <Text style={styles.sectionTitle}>Accounts</Text>
-                        <FlatList
-                            horizontal
-                            data={accounts}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={[styles.accountCard, selectedAccount?.id === item.id && styles.selectedAccountCard]}
-                                    onPress={() => setSelectedAccount(item)}
-                                >
-                                    <Ionicons name="wallet-outline" size={32} color={selectedAccount?.id === item.id ? '#fff' : colors.primary} />
-                                    <Text style={[styles.accountName, selectedAccount?.id === item.id && styles.selectedAccountText]}>{item.institution}</Text>
-                                    <Text style={[styles.accountBalance, selectedAccount?.id === item.id && styles.selectedAccountText]}>${item.balance.toLocaleString()}</Text>
+                        {/* Header */}
+                        <View style={styles.header}>
+                            <Text style={styles.headerTitle}>Savings</Text>
+                        </View>
+
+                        {/* Accounts Overview */}
+                        <Text style={styles.sectionTitle}>Your Accounts</Text>
+                        {accounts.length > 0 ? (
+                            <FlatList
+                                horizontal
+                                data={accounts}
+                                keyExtractor={(item) => item.id}
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.accountsListContainer}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={[styles.accountCard, selectedAccount?.id === item.id && styles.selectedAccountCard]}
+                                        onPress={() => setSelectedAccount(item)}
+                                    >
+                                        <Ionicons name="wallet-outline" size={32} color={selectedAccount?.id === item.id ? colors.card : colors.primary} />
+                                        <Text style={[styles.accountName, selectedAccount?.id === item.id && { color: colors.card }]}>{item.institution}</Text>
+                                        <Text style={[styles.accountBalance, selectedAccount?.id === item.id && { color: colors.card }]}>${item.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                                    </TouchableOpacity>
+                                )}
+                            />
+                        ) : (
+                            <View style={styles.emptyStateCard}>
+                                <Text style={styles.emptyStateText}>No accounts linked yet.</Text>
+                                <TouchableOpacity onPress={() => router.push('/linkBank')}>
+                                    <Text style={styles.linkAccountText}>Link your first account!</Text>
                                 </TouchableOpacity>
-                            )}
-                            keyExtractor={(item) => item.id}
-                            showsHorizontalScrollIndicator={false}
-                            style={styles.accountSelector}
-                        />
-                        <Text style={styles.sectionTitle}>Savings Vaults</Text>
+                            </View>
+                        )}
+
+                        {/* Savings Summary */}
+                        <Text style={styles.sectionTitle}>Savings Summary</Text>
+                        <View style={styles.summaryCard}>
+                            <Text style={styles.summaryLabel}>Total Saved</Text>
+                            <Text style={styles.summaryValue}>${totalSaved.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                            <Text style={styles.summaryLabel}>Total Target</Text>
+                            <Text style={styles.summaryValue}>${totalTarget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                            <View style={styles.progressBarContainer}>
+                                <View
+                                    style={[
+                                        styles.progressBar,
+                                        { width: `${Math.min(overallProgress, 100)}%` },
+                                    ]}
+                                />
+                            </View>
+                            <Text style={styles.progressText}>{overallProgress.toFixed(0)}% Overall Progress</Text>
+                        </View>
+
+                        <Text style={styles.sectionTitle}>Your Savings Vaults</Text>
                     </>
                 }
-                ListEmptyComponent={loading ? renderSkeleton : (
+                ListEmptyComponent={!loading && (
                     <View style={styles.emptyVaultsContainer}>
                         <Text style={styles.emptyVaultsText}>No savings vaults found.</Text>
                         <TouchableOpacity style={styles.newVaultButtonInline} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
@@ -312,17 +357,9 @@ const SavingsScreenContent = () => {
                 </KeyboardAvoidingView>
             </Modal>
 
-            <TouchableOpacity style={styles.newVaultButton} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
+            <TouchableOpacity style={styles.fab} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
                 <Ionicons name="add" size={32} color="#fff" />
             </TouchableOpacity>
-        </View>
+        </SafeAreaView>
     );
 }
-
-export default function SavingsScreenWithProvider() {
-    return (
-        <SavingsProvider>
-            <SavingsScreenContent />
-        </SavingsProvider>
-    );
-} 

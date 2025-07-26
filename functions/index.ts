@@ -1,8 +1,8 @@
 
 // Add these functions to your existing functions/index.ts file
 
-import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
 import fetch from "node-fetch";
 import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
 
@@ -181,7 +181,7 @@ export const syncTransactions = functions.https.onCall(async (data, context) => 
       {
         id: `trans_${Date.now()}_1`,
         amount: 5000, // Amount in smallest currency unit (e.g., kobo for NGN)
-        currency: "NGN",
+        currency: "GH",
         date: new Date(),
         description: "Grocery shopping",
         category: "Groceries",

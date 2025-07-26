@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { UserProvider, useUser } from '../context/UserContext';
+import { TransactionsProvider } from '../context/TransactionsContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -33,7 +34,9 @@ export default function RootLayout() {
     <UserProvider>
       <ThemeProvider>
         <SavingsProvider>
-          <RootLayoutNav />
+          <TransactionsProvider>
+            <RootLayoutNav />
+          </TransactionsProvider>
         </SavingsProvider>
       </ThemeProvider>
     </UserProvider>
@@ -47,15 +50,18 @@ function RootLayoutNav() {
   
   useEffect(() => {
     const inAuthGroup = segments[0] === '(auth)';
+    const inAppGroup = segments[0] === '(tabs)';
+
     if (user && inAuthGroup) {
       router.replace('/(tabs)/dashboard');
-    } else if (!user && !inAuthGroup) {
-      router.replace('/login');
+    } else if (!user && inAppGroup) {
+      router.replace('/(auth)/login');
     }
   }, [user, segments, router]);
 
   return (
       <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="addVault" options={{ presentation: 'modal', headerShown: false }} />

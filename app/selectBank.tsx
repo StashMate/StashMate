@@ -1,9 +1,10 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-import { fetchBanks } from '../firebase';
+import { useUser } from '../context/UserContext';
+import { fetchBanks, linkAccount } from '../firebase';
 import { getSelectBankStyles } from '../styles/selectBank.styles';
 
 type Bank = {
@@ -17,12 +18,19 @@ export default function SelectBankScreen() {
     const { colors } = useTheme();
     const styles = getSelectBankStyles(colors);
     const router = useRouter();
+    const { user } = useUser();
     const [loading, setLoading] = useState(true);
     const [banks, setBanks] = useState<Bank[]>([]);
     const [filteredBanks, setFilteredBanks] = useState<Bank[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [accountNumber, setAccountNumber] = useState('');
+    
+    // Modal states
+    const [isModalVisible, setModalVisible] = useState(false);
     const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
+    
+    // Form states
+    const [accountNumber, setAccountNumber] = useState('');
+    const [accountName, setAccountName] = useState('');
     const [isVerifying, setIsVerifying] = useState(false);
     const [verificationError, setVerificationError] = useState('');
 
@@ -58,11 +66,12 @@ export default function SelectBankScreen() {
 
     const selectBank = (bank: Bank) => {
         setSelectedBank(bank);
+        setModalVisible(true);
     };
 
-    const verifyAndLinkAccount = async () => {
-        if (!selectedBank || !accountNumber || !user?.uid) {
-            setVerificationError('Please select a bank and enter your account number');
+    const handleLinkAccount = async () => {
+        if (!selectedBank || !accountNumber || !accountName || !user?.uid) {
+            setVerificationError('Please enter both account number and account name');
             return;
         }
         
@@ -70,23 +79,26 @@ export default function SelectBankScreen() {
         setVerificationError('');
         
         try {
-            // Call the linkAccountWithPaystack function from firebase.ts
-            const result = await linkAccountWithPaystack(user.uid, {
-                accountNumber,
-                bankCode: selectedBank.code,
-                bankName: selectedBank.name
+            // Link the account
+            await linkAccount(user.uid, {
+                accountName: accountName,
+                accountNumber: accountNumber,
+                accountType: 'bank',
+                balance: 0,
+                institution: selectedBank.name,
+                logoUrl: '',
             });
             
-            if (result.success) {
-                // Account linked successfully
-                router.back();
-            } else {
-                // Account verification failed
-                setVerificationError(result.error || 'Failed to verify account');
-            }
+            // Reset form and close modal
+            setAccountNumber('');
+            setAccountName('');
+            setModalVisible(false);
+            
+            // Navigate back to the link bank screen
+            router.back();
         } catch (error) {
             console.error('Error linking account:', error);
-            setVerificationError('An unexpected error occurred');
+            setVerificationError('Failed to link account. Please try again.');
         } finally {
             setIsVerifying(false);
         }
@@ -131,32 +143,78 @@ export default function SelectBankScreen() {
                     contentContainerStyle={styles.listContent}
                 />
             )}
+            
+            {/* Account Details Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={isModalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <KeyboardAvoidingView 
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalContainer}
+                >
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Enter Bank Details</Text>
+                        
+                        {selectedBank && (
+                            <View style={styles.selectedProviderContainer}>
+                                <View style={styles.bankLogoPlaceholder}>
+                                    <Feather name="credit-card" size={24} color={colors.primary} />
+                                </View>
+                                <Text style={styles.selectedProviderName}>{selectedBank.name}</Text>
+                            </View>
+                        )}
+                        
+                        <View style={styles.formContainer}>
+                            <Text style={styles.label}>Account Number</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Enter your account number"
+                                placeholderTextColor={colors.secondaryText}
+                                value={accountNumber}
+                                onChangeText={setAccountNumber}
+                                keyboardType="number-pad"
+                            />
+                        </View>
+                        
+                        <View style={styles.formContainer}>
+                            <Text style={styles.label}>Account Name</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Enter account name"
+                                placeholderTextColor={colors.secondaryText}
+                                value={accountName}
+                                onChangeText={setAccountName}
+                            />
+                        </View>
+                        
+                        {verificationError ? <Text style={styles.errorText}>{verificationError}</Text> : null}
+                        
+                        <View style={styles.modalButtonContainer}>
+                            <TouchableOpacity 
+                                style={[styles.button, styles.cancelButton]} 
+                                onPress={() => setModalVisible(false)}
+                            >
+                                <Text style={styles.buttonText}>Cancel</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity 
+                                style={[styles.button, styles.saveButton]} 
+                                onPress={handleLinkAccount}
+                                disabled={isVerifying}
+                            >
+                                {isVerifying ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.buttonText}>Link Account</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
         </SafeAreaView>
     );
-    // Add this to your render function after the bank list
-    {selectedBank && (
-        <View style={styles.verificationContainer}>
-            <Text style={styles.selectedBankText}>Selected Bank: {selectedBank.name}</Text>
-            <TextInput
-                style={styles.accountInput}
-                placeholder="Enter your account number"
-                placeholderTextColor={colors.secondaryText}
-                value={accountNumber}
-                onChangeText={setAccountNumber}
-                keyboardType="numeric"
-            />
-            {verificationError ? <Text style={styles.errorText}>{verificationError}</Text> : null}
-            <TouchableOpacity 
-                style={styles.verifyButton}
-                onPress={verifyAndLinkAccount}
-                disabled={isVerifying}
-            >
-                {isVerifying ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                    <Text style={styles.verifyButtonText}>Verify & Link Account</Text>
-                )}
-            </TouchableOpacity>
-        </View>
-    )}
 }

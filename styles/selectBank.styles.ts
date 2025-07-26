@@ -62,43 +62,90 @@ export const getSelectBankStyles = (colors: ThemeColors) => StyleSheet.create({
         height: 1,
         backgroundColor: colors.border,
     },
-    verificationContainer: {
-        marginTop: 20,
-        padding: 20,
-        backgroundColor: colors.card,
-        borderRadius: 8,
-        marginHorizontal: 20,
+    errorText: {
+        color: colors.danger,
+        marginBottom: 12,
+        textAlign: 'center',
     },
-    selectedBankText: {
-        fontSize: 16,
+    // Modal styles
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContent: {
+        backgroundColor: colors.card,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 20,
+        alignItems: 'center',
+    },
+    modalTitle: {
+        fontSize: 22,
         fontWeight: 'bold',
         color: colors.text,
-        marginBottom: 12,
+        marginBottom: 20,
     },
-    accountInput: {
+    selectedProviderContainer: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    bankLogoPlaceholder: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: colors.cardLight || colors.background,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    selectedProviderName: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.text,
+    },
+    formContainer: {
+        marginBottom: 20,
+        width: '100%',
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.text,
+        marginBottom: 8,
+    },
+    input: {
         backgroundColor: colors.background,
         borderRadius: 8,
         paddingHorizontal: 16,
         paddingVertical: 12,
         fontSize: 16,
         color: colors.text,
-        marginBottom: 16,
         borderWidth: 1,
         borderColor: colors.border,
     },
-    errorText: {
-        color: 'red',
-        marginBottom: 12,
+    modalButtonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginTop: 20,
     },
-    verifyButton: {
-        backgroundColor: colors.primary,
-        borderRadius: 8,
-        paddingVertical: 12,
+    button: {
+        borderRadius: 12,
+        paddingVertical: 16,
+        width: '48%',
         alignItems: 'center',
+        justifyContent: 'center',
     },
-    verifyButtonText: {
-        color: '#fff',
+    cancelButton: {
+        backgroundColor: colors.secondaryText,
+    },
+    saveButton: {
+        backgroundColor: colors.primary,
+    },
+    buttonText: {
         fontSize: 16,
         fontWeight: 'bold',
+        color: '#FFFFFF',
     },
 });

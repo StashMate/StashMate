@@ -1,20 +1,25 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+
+import { useTransactions } from '../context/TransactionsContext';
 import { useUser } from '../context/UserContext';
-import { addTransaction } from '../firebase';
-import { getAddTransactionStyles } from '../styles/addTransaction.styles';
 import { useSavings } from '../context/SavingsContext';
+import { db } from '../firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getAddTransactionStyles } from '../styles/addTransaction.styles';
+
 
 export default function AddTransactionScreen() {
   const { colors } = useTheme();
   const styles = getAddTransactionStyles(colors);
   const router = useRouter();
+  const { addTransaction, refreshTransactions } = useTransactions();
   const { user } = useUser();
-  const { accounts } = useSavings();
+  const { accounts, selectedAccount } = useSavings();
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -23,9 +28,19 @@ export default function AddTransactionScreen() {
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
+  useEffect(() => {
+    // Reset fields when transaction type changes
+    setName('');
+    setAmount('');
+    setCategory('');
+    setPaymentMethod('');
+    setSelectedAccountId(null);
+  }, [type]);
+
   const handleAddTransaction = async () => {
-    if (!name.trim() || !amount.trim() || !user || !selectedAccountId) {
-      Alert.alert('Missing Information', 'Please fill out all required fields and select an account.');
+    // Allow skipping account selection if payment method is Cash
+    if (!name.trim() || !amount.trim() || !user || (!selectedAccountId && paymentMethod !== 'Cash')) {
+      Alert.alert('Missing Information', 'Please fill out all required fields and select an account (unless it\'s a cash transaction).');
       return;
     }
 
@@ -34,39 +49,62 @@ export default function AddTransactionScreen() {
       return;
     }
 
-    const numericAmount = parseFloat(amount);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid positive number for the amount.');
       return;
     }
 
-    const newTransaction: {
-      name: string;
-      amount: number;
-      type: 'income' | 'expense';
-      date: Date;
-      category: string;
-      paymentMethod?: string;
-      accountId: string;
-    } = {
+    let numericAmount = parsedAmount;
+    if (type === 'expense') {
+      numericAmount = -parsedAmount;
+    }
+
+    let iconName = 'cash'; // Default icon for cash
+    if (paymentMethod === 'Mobile Money') {
+      iconName = 'cellphone';
+    } else if (paymentMethod && paymentMethod !== 'Cash') {
+      iconName = 'bank-transfer'; // Assuming other payment methods are bank-related
+    } else if (type === 'income') {
+      iconName = 'cash-plus';
+    } else if (type === 'expense') {
+      iconName = 'cash-minus';
+    }
+
+    const transactionData = {
       name,
       amount: numericAmount,
       type,
-      date: new Date(),
       category: type === 'income' ? 'Income' : category,
-      accountId: selectedAccountId,
+      paymentMethod,
+      date: serverTimestamp(), // Use server timestamp for consistency
+      accountId: paymentMethod === 'Cash' ? null : selectedAccountId, // Set accountId to null for cash transactions
+      icon: iconName,
     };
 
-    if (type === 'expense') {
-      newTransaction.paymentMethod = paymentMethod;
-    }
+    try {
+      if (!user) {
+        Alert.alert('Error', 'User not logged in.');
+        return;
+      }
 
-    const result = await addTransaction(user.uid, newTransaction);
-    if (result.success) {
+      // For cash transactions, store them under a generic 'cash' account or directly under user if no account is selected
+      const transactionCollectionRef = paymentMethod === 'Cash' && !selectedAccountId
+        ? collection(db, 'users', user.uid, 'transactions') // Store directly under user if no account selected for cash
+        : collection(db, 'users', user.uid, 'accounts', selectedAccount?.id || '', 'transactions');
+      
+      if (paymentMethod !== 'Cash' && !selectedAccount) {
+        Alert.alert('Error', 'Please select an account for non-cash transactions.');
+        return;
+      }
+
+      await addDoc(transactionCollectionRef, transactionData);
       Alert.alert('Success', 'Transaction added successfully!');
+      refreshTransactions(); // Refresh transactions after successful addition
       router.back();
-    } else {
-      Alert.alert('Error', result.error);
+    } catch (error) {
+      console.error("Error adding transaction: ", error);
+      Alert.alert('Error', 'Failed to add transaction.');
     }
   };
 
@@ -130,7 +168,7 @@ export default function AddTransactionScreen() {
               <Text style={styles.label}>Payment Method</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g., Credit Card, Cash"
+                placeholder="e.g., Credit Card, Mobile Money, Cash"
                 placeholderTextColor={colors.secondaryText}
                 value={paymentMethod}
                 onChangeText={setPaymentMethod}
