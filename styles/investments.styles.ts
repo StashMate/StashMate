@@ -179,4 +179,10 @@ export const getInvestmentsStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
+  emptyChartText: {
+    textAlign: 'center',
+    color: colors.secondaryText,
+    marginTop: 20,
+    fontSize: 16,
+  },
 }); 

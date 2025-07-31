@@ -22,11 +22,14 @@ export default function TransactionsScreen() {
 
   const [filter, setFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('All');
 
   const filteredTransactions = useMemo(() => {
     let filtered = transactions;
-    if (filter !== 'All') {
-      filtered = filtered.filter(t => t.type.toLowerCase() === filter.toLowerCase());
+    if (activeTab === 'Cash') {
+      filtered = filtered.filter(t => t.paymentMethod === 'Cash');
+    } else if (activeTab !== 'All') {
+      filtered = filtered.filter(t => t.type.toLowerCase() === activeTab.toLowerCase());
     }
     if (searchQuery) {
       filtered = filtered.filter(t => 
@@ -35,7 +38,7 @@ export default function TransactionsScreen() {
       );
     }
     return filtered;
-  }, [filter, searchQuery, transactions]);
+  }, [activeTab, searchQuery, transactions]);
 
   const groupedTransactions = useMemo(() => filteredTransactions.reduce((acc, tx) => {
     if (!tx.date) {
@@ -137,14 +140,17 @@ export default function TransactionsScreen() {
         </View>
       </View>
       <View style={styles.filtersContainer}>
-        <TouchableOpacity style={[styles.filterButton, filter === 'All' && styles.activeFilterButton]} onPress={() => setFilter('All')}>
-          <Text style={[styles.filterText, filter === 'All' && styles.activeFilterText]}>All</Text>
+        <TouchableOpacity style={[styles.filterButton, activeTab === 'All' && styles.activeFilterButton]} onPress={() => setActiveTab('All')}>
+          <Text style={[styles.filterText, activeTab === 'All' && styles.activeFilterText]}>All</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterButton, filter === 'Income' && styles.activeFilterButton]} onPress={() => setFilter('Income')}>
-          <Text style={[styles.filterText, filter === 'Income' && styles.activeFilterText]}>Income</Text>
+        <TouchableOpacity style={[styles.filterButton, activeTab === 'Cash' && styles.activeFilterButton]} onPress={() => setActiveTab('Cash')}>
+          <Text style={[styles.filterText, activeTab === 'Cash' && styles.activeFilterText]}>Cash</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterButton, filter === 'Expense' && styles.activeFilterButton]} onPress={() => setFilter('Expense')}>
-          <Text style={[styles.filterText, filter === 'Expense' && styles.activeFilterText]}>Expenses</Text>
+        <TouchableOpacity style={[styles.filterButton, activeTab === 'Income' && styles.activeFilterButton]} onPress={() => setActiveTab('Income')}>
+          <Text style={[styles.filterText, activeTab === 'Income' && styles.activeFilterText]}>Income</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.filterButton, activeTab === 'Expense' && styles.activeFilterButton]} onPress={() => setActiveTab('Expense')}>
+          <Text style={[styles.filterText, activeTab === 'Expense' && styles.activeFilterText]}>Expenses</Text>
         </TouchableOpacity>
       </View>
     </>

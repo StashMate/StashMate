@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
-import React, { ComponentProps, useCallback, useMemo } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { ComponentProps, useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,12 +11,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import { useUser } from '../../context/UserContext';
 import { useSavings } from '../../context/SavingsContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useTransactions } from '../../context/TransactionsContext';
-import { getDashboardStyles } from '../../styles/dashboard.styles';
+import { useUser } from '../../context/UserContext';
 import { useNetBalance } from '../../hooks/useNetBalance';
+import { fetchCrypto, fetchStocks } from '../../services/fmpService';
+import { getDashboardStyles } from '../../styles/dashboard.styles';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -29,15 +30,37 @@ export default function DashboardScreen() {
   const { transactions, refreshTransactions, loading: transactionsLoading, error: transactionsError } = useTransactions();
   const { netBalance, loading: netBalanceLoading, error: netBalanceError } = useNetBalance();
 
+  const [stocks, setStocks] = useState<any[]>([]);
+  const [crypto, setCrypto] = useState<any[]>([]);
+  const [investmentLoading, setInvestmentLoading] = useState(true);
+  const [investmentError, setInvestmentError] = useState<string | null>(null);
+
   useFocusEffect(
     useCallback(() => {
       // Refresh transactions when dashboard is focused
       refreshTransactions();
+
+      const loadInvestmentData = async () => {
+        setInvestmentLoading(true);
+        setInvestmentError(null);
+        try {
+          const fetchedStocks = await fetchStocks();
+          const fetchedCrypto = await fetchCrypto();
+          setStocks(fetchedStocks);
+          setCrypto(fetchedCrypto);
+        } catch (err: any) {
+          setInvestmentError(err.message || 'Failed to fetch investment data.');
+        } finally {
+          setInvestmentLoading(false);
+        }
+      };
+
+      loadInvestmentData();
     }, [refreshTransactions])
   );
 
-  const isLoading = savingsLoading || transactionsLoading || netBalanceLoading;
-  const hasError = savingsError || transactionsError || netBalanceError;
+  const isLoading = savingsLoading || transactionsLoading || netBalanceLoading || investmentLoading;
+  const hasError = savingsError || transactionsError || netBalanceError || investmentError;
 
   const recentTransactions = useMemo(() => {
     return transactions.slice(0, 5); // Get top 5 recent transactions
@@ -89,6 +112,7 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={dashboardStyles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
+        <View>
         {/* Header */}
         <View style={dashboardStyles.header}>
           <Image
@@ -226,7 +250,38 @@ export default function DashboardScreen() {
           </View>
         )}
 
+            {/* Investment Overview */}
+        <Text style={dashboardStyles.sectionTitle}>Investments</Text>
+        {investmentLoading ? (
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 20 }} />
+        ) : investmentError ? (
+          <View style={dashboardStyles.emptyStateCard}>
+            <Text style={dashboardStyles.errorText}>{investmentError}</Text>
+          </View>
+        ) : (stocks.length > 0 || crypto.length > 0) ? (
+          <TouchableOpacity
+            style={dashboardStyles.investmentSummaryCard}
+            onPress={() => router.push('/investments')}
+          >
+            <Text style={dashboardStyles.investmentSummaryTitle}>Total Investments</Text>
+            <Text style={dashboardStyles.investmentSummaryValue}>
+              ${(stocks.reduce((sum, stock) => sum + stock.price, 0) + crypto.reduce((sum, coin) => sum + coin.price, 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
+            <Text style={dashboardStyles.investmentSummaryAction}>View Details &gt;</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={dashboardStyles.emptyStateCard}>
+            <Text style={dashboardStyles.emptyStateText}>No investment data available.</Text>
+          </View>
+        )}
+        </View>
       </ScrollView>
+      <TouchableOpacity
+        style={dashboardStyles.chatbotButton}
+        onPress={() => router.push('/chatbot')}
+      >
+        <Ionicons name="chatbubbles" size={30} color="#FFFFFF" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
