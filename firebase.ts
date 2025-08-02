@@ -364,6 +364,7 @@ export const addVault = async (accountId: string, vaultData: { name: string; tar
 
     await addDoc(vaultsCollectionRef, {
       ...vaultData,
+      accountId: accountId, // Add accountId to the vault document
       deadline: Timestamp.fromDate(vaultData.deadline),
       currentAmount: 0,
       createdAt: serverTimestamp(),

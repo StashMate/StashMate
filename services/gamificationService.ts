@@ -165,13 +165,27 @@ export const checkAndAwardBadges = async (userId: string) => {
                     if (totalVaults >= badge.criteria.vaults) {
                         await awardBadge(userId, badge);
                     }
-                
+                } else if (badge.id === 'emergency_funder') {
+                    let emergencyFundFound = false;
+                    for (const accountDoc of accountsSnapshot.docs) {
+                        const emergencyVaultsQuery = query(
+                            collection(db, 'accounts', accountDoc.id, 'vaults'),
+                            where('name', '==', 'Emergency Fund')
+                        );
+                        const emergencyVaultsSnapshot = await getDocs(emergencyVaultsQuery);
+                        if (!emergencyVaultsSnapshot.empty) {
+                            emergencyFundFound = true;
+                            break;
+                        }
+                    }
+                    if (emergencyFundFound) {
+                        await awardBadge(userId, badge);
+                    }
                 }
                 // Other milestone badges are placeholders and require specific data tracking
                 // if (badge.id === 'financial_literacy') { /* ... */ }
                 // if (badge.id === 'investment_explorer') { /* ... */ }
                 // if (badge.id === 'debt_destroyer') { /* ... */ }
-                // if (badge.id === 'emergency_funder') { /* ... */ }
                 // if (badge.id === 'net_worth_builder') { /* ... */ }
                 // if (badge.id === 'financial_freedom') { /* ... */ }
                 break;

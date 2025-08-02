@@ -112,8 +112,8 @@ export const getDashboardStyles = (colors: ThemeColors) => StyleSheet.create({
   accountCard: {
     backgroundColor: colors.card,
     borderRadius: 15,
-    padding: 15,
-    marginHorizontal: 8,
+    padding: 18,
+    marginHorizontal: 10,
     marginBottom: 10,
     width: 200,
     shadowColor: '#000',

@@ -9,6 +9,9 @@ import { useTheme } from '../../context/ThemeContext';
 import { addVaultDeposit, deleteVault, updateVault } from '../../firebase';
 import { getSavingsStyles } from '../../styles/savings.styles';
 
+
+import BudgetScreen from '../budget';
+
 interface Vault {
     id: string;
     name: string;
@@ -24,6 +27,9 @@ export default function SavingsScreen() {
     const router = useRouter();
     const { accounts, vaults, loading, error, selectedAccount, setSelectedAccount, refetch } = useSavings();
 
+    const [showBudget, setShowBudget] = useState(false);
+
+    
     const [refreshing, setRefreshing] = useState(false);
     const [isEditModalVisible, setEditModalVisible] = useState(false);
     const [isDepositModalVisible, setDepositModalVisible] = useState(false);
@@ -126,14 +132,27 @@ export default function SavingsScreen() {
     }, [vaults, searchQuery]);
 
     const totalSaved = useMemo(() => {
-        return vaults.reduce((sum, vault) => sum + vault.currentAmount, 0);
-    }, [vaults]);
+        return filteredVaults.reduce((sum, vault) => sum + vault.currentAmount, 0);
+    }, [filteredVaults]);
 
     const totalTarget = useMemo(() => {
-        return vaults.reduce((sum, vault) => sum + vault.targetAmount, 0);
-    }, [vaults]);
+        return filteredVaults.reduce((sum, vault) => sum + vault.targetAmount, 0);
+    }, [filteredVaults]);
 
     const overallProgress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0;
+
+    const totalAccountBalance = useMemo(() => {
+        return accounts.reduce((sum, account) => sum + account.balance, 0);
+    }, [accounts]);
+
+    const netBalance = useMemo(() => {
+        if (!selectedAccount) return 0; // If no account is selected, net balance is 0
+        return selectedAccount.balance - totalSaved;
+    }, [selectedAccount, totalSaved]);
+
+    const savingsPercentage = selectedAccount ? (totalSaved / selectedAccount.balance) * 100 : 0;
+
+    const [isNetBalanceInfoModalVisible, setNetBalanceInfoModalVisible] = useState(false);
 
     const renderVault = ({ item }: { item: Vault }) => {
         const progress = item.targetAmount > 0 ? (item.currentAmount / item.targetAmount) * 100 : 0;
@@ -202,79 +221,112 @@ export default function SavingsScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <FlatList
-                data={filteredVaults}
-                renderItem={renderVault}
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.flatListContentContainer}
-                ListHeaderComponent={
-                    <>
-                        {/* Header */}
-                        <View style={styles.header}>
-                            <Text style={styles.headerTitle}>Savings</Text>
-                        </View>
+            <View style={styles.toggleContainer}>
+                <TouchableOpacity
+                    style={[styles.toggleButton, !showBudget && styles.activeToggleButton]}
+                    onPress={() => setShowBudget(false)}
+                >
+                    <Text style={[styles.toggleButtonText, !showBudget && styles.activeToggleButtonText]}>Savings</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.toggleButton, showBudget && styles.activeToggleButton]}
+                    onPress={() => setShowBudget(true)}
+                >
+                    <Text style={[styles.toggleButtonText, showBudget && styles.activeToggleButtonText]}>Budget</Text>
+                </TouchableOpacity>
+            </View>
 
-                        {/* Accounts Overview */}
-                        <Text style={styles.sectionTitle}>Your Accounts</Text>
-                        {accounts.length > 0 ? (
-                            <FlatList
-                                horizontal
-                                data={accounts}
-                                keyExtractor={(item) => item.id}
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.accountsListContainer}
-                                renderItem={({ item }) => (
-                                    <TouchableOpacity
-                                        style={[styles.accountCard, selectedAccount?.id === item.id && styles.selectedAccountCard]}
-                                        onPress={() => setSelectedAccount(item)}
-                                    >
-                                        <Ionicons name="wallet-outline" size={32} color={selectedAccount?.id === item.id ? colors.card : colors.primary} />
-                                        <Text style={[styles.accountName, selectedAccount?.id === item.id && { color: colors.card }]}>{item.institution}</Text>
-                                        <Text style={[styles.accountBalance, selectedAccount?.id === item.id && { color: colors.card }]}>${item.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                                    </TouchableOpacity>
-                                )}
-                            />
-                        ) : (
-                            <View style={styles.emptyStateCard}>
-                                <Text style={styles.emptyStateText}>No accounts linked yet.</Text>
-                                <TouchableOpacity onPress={() => router.push('/linkBank')}>
-                                    <Text style={styles.linkAccountText}>Link your first account!</Text>
-                                </TouchableOpacity>
+            {showBudget ? (
+                <BudgetScreen />
+            ) : (
+                <FlatList
+                    data={filteredVaults}
+                    renderItem={renderVault}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={styles.flatListContentContainer}
+                    ListHeaderComponent={
+                        <>
+                            {/* Header */}
+                            <View style={styles.header}>
+                                <Text style={styles.headerTitle}>Savings</Text>
                             </View>
-                        )}
 
-                        {/* Savings Summary */}
-                        <Text style={styles.sectionTitle}>Savings Summary</Text>
-                        <View style={styles.summaryCard}>
-                            <Text style={styles.summaryLabel}>Total Saved</Text>
-                            <Text style={styles.summaryValue}>${totalSaved.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                            <Text style={styles.summaryLabel}>Total Target</Text>
-                            <Text style={styles.summaryValue}>${totalTarget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                            <View style={styles.progressBarContainer}>
-                                <View
-                                    style={[
-                                        styles.progressBar,
-                                        { width: `${Math.min(overallProgress, 100)}%` },
-                                    ]}
+                            {/* Accounts Overview */}
+                            <Text style={styles.sectionTitle}>Your Accounts</Text>
+                            {accounts.length > 0 ? (
+                                <FlatList
+                                    horizontal
+                                    data={accounts}
+                                    keyExtractor={(item) => item.id}
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={styles.accountsListContainer}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            style={[styles.accountCard, selectedAccount?.id === item.id && styles.selectedAccountCard]}
+                                            onPress={() => setSelectedAccount(item)}
+                                        >
+                                            <Ionicons name="wallet-outline" size={32} color={selectedAccount?.id === item.id ? colors.card : colors.primary} />
+                                            <Text style={[styles.accountName, selectedAccount?.id === item.id && { color: colors.card }]}>{item.institution}</Text>
+                                            <Text style={[styles.accountBalance, selectedAccount?.id === item.id && { color: colors.card }]}>${item.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                                        </TouchableOpacity>
+                                    )}
                                 />
-                            </View>
-                            <Text style={styles.progressText}>{overallProgress.toFixed(0)}% Overall Progress</Text>
-                        </View>
+                            ) : (
+                                <View style={styles.emptyStateCard}>
+                                    <Text style={styles.emptyStateText}>No accounts linked yet.</Text>
+                                    <TouchableOpacity onPress={() => router.push('/linkBank')}>
+                                        <Text style={styles.linkAccountText}>Link your first account!</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
 
-                        <Text style={styles.sectionTitle}>Your Savings Vaults</Text>
-                    </>
-                }
-                ListEmptyComponent={!loading && (
-                    <View style={styles.emptyVaultsContainer}>
-                        <Text style={styles.emptyVaultsText}>No savings vaults found.</Text>
-                        <TouchableOpacity style={styles.newVaultButtonInline} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
-                            <Ionicons name="add" size={20} color="#fff" />
-                            <Text style={styles.newVaultButtonText}>Create a Vault</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]}/>}
-            />
+                            {/* Savings Summary */}
+                            <Text style={styles.sectionTitle}>Savings Summary</Text>
+                            <View style={styles.summaryCard}>
+                                <TouchableOpacity style={styles.infoIconContainer} onPress={() => setNetBalanceInfoModalVisible(true)}>
+                                    <Ionicons name="information-circle-outline" size={24} color={colors.secondaryText} />
+                                </TouchableOpacity>
+                                <View style={styles.summaryItem}>
+                                    <Text style={styles.summaryLabel}>Net Balance</Text>
+                                    <Text style={styles.summaryValue}>${netBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                                </View>
+                                <View style={styles.summaryRow}>
+                                    <View style={styles.summaryItemHalf}>
+                                        <Text style={styles.summaryLabel}>Total Saved</Text>
+                                        <Text style={styles.summaryValueSmall}>${totalSaved.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                                    </View>
+                                    <View style={styles.summaryItemHalf}>
+                                        <Text style={styles.summaryLabel}>Total Target</Text>
+                                        <Text style={styles.summaryValueSmall}>${totalTarget.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.progressBarContainer}>
+                                    <View
+                                        style={[
+                                            styles.progressBar,
+                                            { width: `${Math.min(overallProgress, 100)}%` },
+                                        ]}
+                                    />
+                                </View>
+                                <Text style={styles.progressText}>{overallProgress.toFixed(0)}% Overall Progress</Text>
+                                <Text style={styles.savingsPercentageText}>You've saved {savingsPercentage.toFixed(0)}% of your account balance!</Text>
+                            </View>
+
+                            <Text style={styles.sectionTitle}>Your Savings Vaults</Text>
+                        </>
+                    }
+                    ListEmptyComponent={!loading && (
+                        <View style={styles.emptyVaultsContainer}>
+                            <Text style={styles.emptyVaultsText}>No savings vaults found.</Text>
+                            <TouchableOpacity style={styles.newVaultButtonInline} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
+                                <Ionicons name="add" size={20} color="#fff" />
+                                <Text style={styles.newVaultButtonText}>Create a Vault</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]}/>}
+                />
+            )}
 
             {/* Edit Vault Modal */}
             <Modal
@@ -358,9 +410,40 @@ export default function SavingsScreen() {
                 </KeyboardAvoidingView>
             </Modal>
 
-            <TouchableOpacity style={styles.fab} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
-                <Ionicons name="add" size={32} color="#fff" />
-            </TouchableOpacity>
+            {/* Net Balance Info Modal */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={isNetBalanceInfoModalVisible}
+                onRequestClose={() => setNetBalanceInfoModalVisible(false)}
+            >
+                <TouchableOpacity 
+                    style={styles.fullScreenModalContainer} 
+                    activeOpacity={1} 
+                    onPress={() => setNetBalanceInfoModalVisible(false)}
+                >
+                    <View style={styles.infoModalContent}>
+                        <Text style={styles.infoModalTitle}>What is Net Balance?</Text>
+                        <Text style={styles.infoModalText}>
+                            Your Net Balance is the amount of money currently available in your selected account 
+                            after deducting the funds you have already allocated to your savings vaults.
+                            It represents the liquid funds you have at your disposal, separate from your savings goals.
+                        </Text>
+                        <TouchableOpacity 
+                            style={styles.infoModalButton} 
+                            onPress={() => setNetBalanceInfoModalVisible(false)}
+                        >
+                            <Text style={styles.infoModalButtonText}>Got It!</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            {!showBudget && (
+                <TouchableOpacity style={styles.fab} onPress={() => router.push({ pathname: '/addVault', params: { accountId: selectedAccount?.id }})}>
+                    <Ionicons name="add" size={32} color="#fff" />
+                </TouchableOpacity>
+            )}
         </SafeAreaView>
     );
 }

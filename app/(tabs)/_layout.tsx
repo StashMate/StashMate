@@ -34,12 +34,13 @@ export default function TabLayout() {
           ),
         }}
       />
+      
       <Tabs.Screen
-        name="savings"
+        name="wallet"
         options={{
-          title: 'Savings',
+          title: 'Wallet',
           tabBarIcon: ({ color, focused }) => (
-            <FontAwesome5 name={focused ? 'piggy-bank' : 'piggy-bank'} size={24} color={color} />
+            <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={24} color={color} />
           ),
         }}
       />
