@@ -168,7 +168,6 @@ export default function RewardsScreen() {
         <Text style={styles.headerTitle}>Rewards</Text>
         <View style={styles.pointsContainer}>
           <MaterialCommunityIcons name="star-circle" size={24} color={colors.white} />
-          <Text style={styles.pointsText}>4,200 Points</Text>
         </View>
       </View>
 

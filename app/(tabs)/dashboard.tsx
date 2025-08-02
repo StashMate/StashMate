@@ -16,8 +16,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useTransactions } from '../../context/TransactionsContext';
 import { useUser } from '../../context/UserContext';
 import { useNetBalance } from '../../hooks/useNetBalance';
-import { getDashboardStyles } from '../../styles/dashboard.styles';
 import { fetchUnreadNotificationsCount } from '../../services/notificationService';
+import { getDashboardStyles } from '../../styles/dashboard.styles';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -187,14 +187,20 @@ export default function DashboardScreen() {
             keyExtractor={(item) => item.id}
             renderItem={({ item: account }) => (
               <View style={dashboardStyles.accountCard}>
-                {account.logoUrl ? (
-                  <Image source={{ uri: account.logoUrl }} style={dashboardStyles.accountLogo} />
-                ) : (
-                  <MaterialCommunityIcons name={account.icon as IconName || 'bank'} size={40} color={colors.primary} />
-                )}
-                <Text style={dashboardStyles.accountName}>{account.institution}</Text>
-                <Text style={dashboardStyles.accountBalance}>${account.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                <Text style={dashboardStyles.accountType}>{account.accountName}</Text>
+                <View style={dashboardStyles.accountCardHeader}>
+                  {account.logoUrl ? (
+                    <Image source={{ uri: account.logoUrl }} style={dashboardStyles.accountLogo} />
+                  ) : (
+                    <MaterialCommunityIcons name={account.icon as IconName || 'bank'} size={40} color={colors.primary} />
+                  )}
+                  <View>
+                    <Text style={dashboardStyles.accountName}>{account.institution}</Text>
+                    <Text style={dashboardStyles.accountType}>{account.accountName}</Text>
+                  </View>
+                </View>
+                <View style={dashboardStyles.accountCardContent}>
+                  <Text style={dashboardStyles.accountBalance}>${account.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                </View>
               </View>
             )}
           />
@@ -207,7 +213,6 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* Recent Transactions */}
         <Text style={dashboardStyles.sectionTitle}>Recent Transactions</Text>
         {recentTransactions.length > 0 ? (
           recentTransactions.map((item) => (
@@ -271,6 +276,19 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+          {/* Recent Transactions */}
+        <Text style={dashboardStyles.sectionTitle}>Investments</Text>
+        <TouchableOpacity onPress={() => router.push('/investment')} style={dashboardStyles.investmentCard}>
+          <View style={dashboardStyles.investmentCardContent}>
+            <MaterialCommunityIcons name="chart-line" size={40} color={colors.primary} />
+            <View style={dashboardStyles.investmentTextContainer}>
+              <Text style={dashboardStyles.investmentTitle}>Crypto & Stocks</Text>
+              <Text style={dashboardStyles.investmentSubtitle}>Track your portfolio and discover opportunities</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color={colors.secondaryText} />
+          </View>
+        </TouchableOpacity>
 
             
         </View>

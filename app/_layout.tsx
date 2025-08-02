@@ -72,6 +72,8 @@ function RootLayoutNav() {
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="preferences" options={{ headerShown: false }} />
         <Stack.Screen name="selectBank" options={{ headerShown: false }} />
+        <Stack.Screen name="investment" options={{ headerShown: false }} />
+        <Stack.Screen name="investmentDetail" options={{ headerShown: false }} />
         <Stack.Screen name="account" options={{ headerShown: false }} />
         <Stack.Screen name="rewards" options={{ headerShown: false }} />
         <Stack.Screen name="referrals" options={{ headerShown: false }} />

@@ -113,4 +113,13 @@ export const getEditProfileStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  errorText: {
+    color: colors.error || '#ff3b30',
+    fontSize: 14,
+    marginTop: 5,
+    marginBottom: 10,
+  },
+  inputError: {
+    borderColor: colors.error || '#ff3b30',
+  },
 });

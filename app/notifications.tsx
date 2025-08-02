@@ -17,7 +17,7 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadNotifications = React.useCallback(async () => {
+  const loadNotifications = React.useCallback(async (onlyUnread: boolean = false) => {
     if (!user) {
       setLoading(false);
       setError("User not logged in.");
@@ -26,7 +26,7 @@ export default function NotificationsScreen() {
 
     try {
       setLoading(true);
-      const fetchedNotifications = await fetchNotifications(user.uid);
+      const fetchedNotifications = await fetchNotifications(user.uid, onlyUnread);
       setNotifications(fetchedNotifications);
     } catch (err) {
       console.error("Failed to fetch notifications:", err);
@@ -41,13 +41,14 @@ export default function NotificationsScreen() {
   }, [loadNotifications]);
 
   const handleRefresh = () => {
-    loadNotifications();
+    loadNotifications(true); // Pass true to fetch only unread notifications
   };
 
   const handleNotificationPress = async (notificationId: string) => {
     if (user) {
       await markNotificationAsRead(notificationId, user.uid);
-      setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
+      // After marking as read, refresh the notifications to hide the read one
+      loadNotifications(true);
     }
     // Optionally navigate or show details based on notification type
   };

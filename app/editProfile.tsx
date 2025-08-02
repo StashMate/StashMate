@@ -53,7 +53,6 @@ export default function EditProfileScreen() {
 
       const updatedData = {
         displayName,
-        email, // Note: Changing email usually requires re-authentication in Firebase
         bio,
         photoURL,
       };
