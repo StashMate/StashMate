@@ -16,8 +16,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { useTransactions } from '../../context/TransactionsContext';
 import { useUser } from '../../context/UserContext';
 import { useNetBalance } from '../../hooks/useNetBalance';
-import { fetchCrypto, fetchStocks } from '../../services/fmpService';
 import { getDashboardStyles } from '../../styles/dashboard.styles';
+import { fetchUnreadNotificationsCount } from '../../services/notificationService';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -29,41 +29,42 @@ export default function DashboardScreen() {
   const { accounts, vaults, loading: savingsLoading, error: savingsError } = useSavings();
   const { transactions, refreshTransactions, loading: transactionsLoading, error: transactionsError } = useTransactions();
   const { netBalance, loading: netBalanceLoading, error: netBalanceError } = useNetBalance();
-
-  const [stocks, setStocks] = useState<any[]>([]);
-  const [crypto, setCrypto] = useState<any[]>([]);
-  const [investmentLoading, setInvestmentLoading] = useState(true);
-  const [investmentError, setInvestmentError] = useState<string | null>(null);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       // Refresh transactions when dashboard is focused
-      refreshTransactions();
+      const unsubscribePromise = refreshTransactions();
 
-      const loadInvestmentData = async () => {
-        setInvestmentLoading(true);
-        setInvestmentError(null);
-        try {
-          const fetchedStocks = await fetchStocks();
-          const fetchedCrypto = await fetchCrypto();
-          setStocks(fetchedStocks);
-          setCrypto(fetchedCrypto);
-        } catch (err: any) {
-          setInvestmentError(err.message || 'Failed to fetch investment data.');
-        } finally {
-          setInvestmentLoading(false);
+      const loadUnreadNotificationsCount = async () => {
+        if (user?.uid) {
+          const count = await fetchUnreadNotificationsCount(user.uid);
+          setUnreadNotificationsCount(count);
         }
       };
 
-      loadInvestmentData();
-    }, [refreshTransactions])
+      loadUnreadNotificationsCount();
+
+      return () => {
+        // Handle the promise returned by refreshTransactions
+        if (unsubscribePromise && typeof unsubscribePromise.then === 'function') {
+          unsubscribePromise.then(unsubscribeFn => {
+            if (unsubscribeFn && typeof unsubscribeFn === 'function') {
+              unsubscribeFn();
+            }
+          }).catch(error => {
+            console.error('Error handling unsubscribe:', error);
+          });
+        }
+      };
+    }, [refreshTransactions, user?.uid])
   );
 
-  const isLoading = savingsLoading || transactionsLoading || netBalanceLoading || investmentLoading;
-  const hasError = savingsError || transactionsError || netBalanceError || investmentError;
+  const isLoading = savingsLoading || transactionsLoading || netBalanceLoading ;
+  const hasError = savingsError || transactionsError || netBalanceError ;
 
   const recentTransactions = useMemo(() => {
-    return transactions.slice(0, 5); // Get top 5 recent transactions
+    return transactions.slice(0, 3); // Get top 3 recent transactions
   }, [transactions]);
 
   const totalIncomeThisMonth = useMemo(() => {
@@ -120,8 +121,25 @@ export default function DashboardScreen() {
             style={dashboardStyles.profileImage}
           />
           <Text style={dashboardStyles.greeting}>Hello, {user?.displayName || 'User'}!</Text>
-          <TouchableOpacity onPress={() => router.push('/notifications')}>
+          <TouchableOpacity onPress={() => router.push('/notifications')} style={{ position: 'relative' }}>
             <Ionicons name="notifications-outline" size={24} color={colors.primary} />
+            {unreadNotificationsCount > 0 && (
+              <View style={{
+                position: 'absolute',
+                right: -5,
+                top: -5,
+                backgroundColor: 'red',
+                borderRadius: 9,
+                width: 18,
+                height: 18,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
+                  {unreadNotificationsCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -169,7 +187,11 @@ export default function DashboardScreen() {
             keyExtractor={(item) => item.id}
             renderItem={({ item: account }) => (
               <View style={dashboardStyles.accountCard}>
-                <Image source={{ uri: account.logoUrl }} style={dashboardStyles.accountLogo} />
+                {account.logoUrl ? (
+                  <Image source={{ uri: account.logoUrl }} style={dashboardStyles.accountLogo} />
+                ) : (
+                  <MaterialCommunityIcons name={account.icon as IconName || 'bank'} size={40} color={colors.primary} />
+                )}
                 <Text style={dashboardStyles.accountName}>{account.institution}</Text>
                 <Text style={dashboardStyles.accountBalance}>${account.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                 <Text style={dashboardStyles.accountType}>{account.accountName}</Text>
@@ -218,7 +240,7 @@ export default function DashboardScreen() {
         {/* Savings Goals/Vaults */}
         <Text style={dashboardStyles.sectionTitle}>Savings Goals</Text>
         {vaults.length > 0 ? (
-          vaults.map((vault) => (
+          vaults.slice(0, 3).map((vault) => (
             <TouchableOpacity
               key={vault.id}
               style={dashboardStyles.vaultItem}
@@ -250,30 +272,7 @@ export default function DashboardScreen() {
           </View>
         )}
 
-            {/* Investment Overview */}
-        <Text style={dashboardStyles.sectionTitle}>Investments</Text>
-        {investmentLoading ? (
-          <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 20 }} />
-        ) : investmentError ? (
-          <View style={dashboardStyles.emptyStateCard}>
-            <Text style={dashboardStyles.errorText}>{investmentError}</Text>
-          </View>
-        ) : (stocks.length > 0 || crypto.length > 0) ? (
-          <TouchableOpacity
-            style={dashboardStyles.investmentSummaryCard}
-            onPress={() => router.push('/investments')}
-          >
-            <Text style={dashboardStyles.investmentSummaryTitle}>Total Investments</Text>
-            <Text style={dashboardStyles.investmentSummaryValue}>
-              ${(stocks.reduce((sum, stock) => sum + stock.price, 0) + crypto.reduce((sum, coin) => sum + coin.price, 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </Text>
-            <Text style={dashboardStyles.investmentSummaryAction}>View Details &gt;</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={dashboardStyles.emptyStateCard}>
-            <Text style={dashboardStyles.emptyStateText}>No investment data available.</Text>
-          </View>
-        )}
+            
         </View>
       </ScrollView>
       <TouchableOpacity

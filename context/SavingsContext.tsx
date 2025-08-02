@@ -29,6 +29,7 @@ interface SavingsContextData {
     selectedAccount: Account | null;
     setSelectedAccount: (account: Account | null) => void;
     refetch: () => void;
+    refreshAccounts: () => Promise<void>;
 }
 
 const SavingsContext = createContext<SavingsContextData>({} as SavingsContextData);
@@ -96,8 +97,13 @@ export const SavingsProvider = ({ children }: { children: React.ReactNode }) => 
         fetchVaults();
     }
 
+    // Alias for refetch to match the interface
+    const refreshAccounts = useCallback(async () => {
+        return refetch();
+    }, [refetch]);
+
     return (
-        <SavingsContext.Provider value={{ accounts, vaults, loading, error, selectedAccount, setSelectedAccount, refetch }}>
+        <SavingsContext.Provider value={{ accounts, vaults, loading, error, selectedAccount, setSelectedAccount, refetch, refreshAccounts }}>
             {children}
         </SavingsContext.Provider>
     );

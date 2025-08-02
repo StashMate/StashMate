@@ -1,13 +1,13 @@
-import { collection, query, where, getDocs, doc, updateDoc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { db, trackBudget } from '../firebase';
-import { subDays, isToday, isYesterday, startOfDay } from 'date-fns';
+import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import { db } from '../firebase';
+import { addNotification } from './notificationService';
 
 export interface Badge {
     id: string;
     name: string;
     description: string;
     icon: string; // e.g., 'trophy-outline', 'wallet-outline'
-    type: 'savings_completion' | 'budget_adherence' | 'streak' | 'challenge' | 'milestone';
+    type: 'savings_completion' | 'streak' | 'challenge' | 'milestone';
     criteria: any; // Specific criteria for the badge
 }
 
@@ -15,12 +15,8 @@ export interface AwardedBadge extends Badge {
     awardedAt: any; // Timestamp
     userId: string;
 }
-
-export interface Challenge {
-    id: string;
-    name: string;
-    description: string;
-    type: 'spending_limit' | 'savings_goal';
+export interface SavingsGoal {
+    type: 'savings_goal';
     targetValue: number;
     currentValue: number;
     startDate: any; // Timestamp
@@ -34,7 +30,7 @@ export interface PredefinedChallenge {
     id: string;
     name: string;
     description: string;
-    type: 'spending_limit' | 'savings_goal';
+    type: 'savings_goal';
     targetValue: number;
     durationDays: number; // Duration in days for the challenge
     category?: string; // For spending_limit challenges
@@ -43,7 +39,7 @@ export interface PredefinedChallenge {
 // Predefined Badges (can be stored in Firestore or a static file)
 export const predefinedBadges: Badge[] = [
     { id: 'savings_master', name: 'Savings Master', description: 'Completed 5 savings vaults.', icon: 'star', type: 'savings_completion', criteria: { completedVaults: 5 } },
-    { id: 'budget_pro', name: 'Budget Pro', description: 'Maintained budget for 3 consecutive months.', icon: 'wallet', type: 'budget_adherence', criteria: { consecutiveMonths: 3 } },
+    
     { id: 'streak_7', name: '7-Day Saver', description: 'Achieved a 7-day savings streak.', icon: 'flame', type: 'streak', criteria: { streakDays: 7 } },
     { id: 'streak_30', name: '30-Day Saver', description: 'Achieved a 30-day savings streak.', icon: 'flame', type: 'streak', criteria: { streakDays: 30 } },
     { id: 'first_transaction', name: 'First Transaction', description: 'Recorded your first transaction.', icon: 'receipt', type: 'milestone', criteria: { transactions: 1 } },
@@ -52,7 +48,7 @@ export const predefinedBadges: Badge[] = [
     { id: 'savings_goal_achiever', name: 'Savings Goal Achiever', description: 'Successfully completed a savings goal challenge.', icon: 'piggy-bank', type: 'challenge', criteria: { challengeId: 'savings_goal_challenge' } },
     { id: 'financial_literacy', name: 'Financial Literacy', description: 'Read 5 financial tips.', icon: 'book', type: 'milestone', criteria: { tipsRead: 5 } },
     { id: 'investment_explorer', name: 'Investment Explorer', description: 'Made your first investment.', icon: 'trending-up', type: 'milestone', criteria: { investments: 1 } },
-    { id: 'budget_beginner', name: 'Budget Beginner', description: 'Set your first budget.', icon: 'cash-outline', type: 'milestone', criteria: { budgetsSet: 1 } },
+    
     { id: 'transaction_master', name: 'Transaction Master', description: 'Recorded 50 transactions.', icon: 'list-outline', type: 'milestone', criteria: { transactions: 50 } },
     { id: 'debt_destroyer', name: 'Debt Destroyer', description: 'Paid off a significant debt.', icon: 'trending-down', type: 'milestone', criteria: { debtPaid: 1 } },
     { id: 'emergency_funder', name: 'Emergency Funder', description: 'Created an emergency fund.', icon: 'medkit-outline', type: 'milestone', criteria: { emergencyFund: true } },
@@ -61,11 +57,11 @@ export const predefinedBadges: Badge[] = [
 ];
 
 export const predefinedChallenges: PredefinedChallenge[] = [
-    { id: 'no_spend_week', name: 'No-Spend Week', description: 'Avoid all non-essential spending for 7 days.', type: 'spending_limit', targetValue: 0, durationDays: 7, category: 'non-essential' },
+    
     { id: 'save_50_in_7_days', name: 'Save $50 in 7 Days', description: 'Save $50 within a week.', type: 'savings_goal', targetValue: 50, durationDays: 7 },
-    { id: 'groceries_under_100', name: 'Groceries Under $100', description: 'Keep your grocery spending under $100 for the month.', type: 'spending_limit', targetValue: 100, durationDays: 30, category: 'groceries' },
+    
     { id: 'emergency_fund_kickstart', name: 'Emergency Fund Kickstart', description: 'Save $200 towards your emergency fund.', type: 'savings_goal', targetValue: 200, durationDays: 30 },
-    { id: 'transport_budget', name: 'Transport Budget', description: 'Spend no more than $50 on transport this month.', type: 'spending_limit', targetValue: 50, durationDays: 30, category: 'transport' },
+    
 ];
 
 /**
@@ -101,6 +97,14 @@ export const awardBadge = async (userId: string, badge: Badge) => {
                 awardedAt: serverTimestamp(),
             });
             console.log(`Badge '${badge.name}' awarded to user ${userId}`);
+
+            // Send a notification
+            await addNotification({
+                userId,
+                type: 'gamification_badge_unlocked',
+                title: 'Badge Unlocked!',
+                message: `Congratulations! You've earned the ${badge.name} badge.`,
+            });
         }
     } catch (error) {
         console.error('Error awarding badge:', error);
@@ -146,10 +150,7 @@ export const checkAndAwardBadges = async (userId: string) => {
                     await awardBadge(userId, badge);
                 }
                 break;
-            case 'budget_adherence':
-                // This requires more complex logic to track consecutive months. Placeholder for now.
-                // You would need to store monthly budget adherence records for each user.
-                break;
+            
             case 'challenge':
                 // Challenges are awarded separately based on their completion status
                 break;
@@ -164,12 +165,7 @@ export const checkAndAwardBadges = async (userId: string) => {
                     if (totalVaults >= badge.criteria.vaults) {
                         await awardBadge(userId, badge);
                     }
-                } else if (badge.id === 'budget_beginner') {
-                    const budgetsQuery = query(collection(db, 'budgets'), where('userId', '==', userId));
-                    const budgetsSnapshot = await getDocs(budgetsQuery);
-                    if (budgetsSnapshot.size >= badge.criteria.budgetsSet) {
-                        await awardBadge(userId, badge);
-                    }
+                
                 }
                 // Other milestone badges are placeholders and require specific data tracking
                 // if (badge.id === 'financial_literacy') { /* ... */ }
@@ -234,14 +230,7 @@ export const updateChallengeProgress = async (challengeId: string, newCurrentVal
             const challengeData = challengeDoc.data() as Challenge;
             let updatedIsCompleted = challengeData.isCompleted;
 
-            if (challengeData.type === 'spending_limit') {
-                // For spending limit, currentValue should not exceed targetValue
-                const finalValue = Math.min(newCurrentValue, challengeData.targetValue);
-                if (finalValue >= challengeData.targetValue) {
-                    updatedIsCompleted = true; // User has spent up to the limit, challenge failed (or completed if goal is to spend less)
-                }
-                await updateDoc(challengeDocRef, { currentValue: finalValue, isCompleted: updatedIsCompleted });
-            } else if (challengeData.type === 'savings_goal') {
+            if (challengeData.type === 'savings_goal') {
                 // For savings goal, currentValue should increase towards targetValue
                 const finalValue = Math.min(newCurrentValue, challengeData.targetValue);
                 if (finalValue >= challengeData.targetValue) {
@@ -276,28 +265,7 @@ export const checkAndCompleteChallenges = async (userId: string) => {
             continue;
         }
 
-        if (challenge.type === 'spending_limit') {
-            // Sum expenses for the challenge period and category
-            const transactionsQuery = query(
-                collection(db, 'transactions'),
-                where('userId', '==', userId),
-                where('type', '==', 'expense'),
-                where('date', '>=', challenge.startDate),
-                where('date', '<=', challenge.endDate),
-                ...(challenge.category ? [where('category', '==', challenge.category)] : [])
-            );
-            const querySnapshot = await getDocs(transactionsQuery);
-            const spentAmount = querySnapshot.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
-
-            await updateChallengeProgress(challenge.id, spentAmount);
-
-            // If spent amount is less than target and challenge is over, it's a success
-            if (spentAmount <= challenge.targetValue && challenge.endDate.toDate() < now) {
-                await updateDoc(doc(db, 'userChallenges', challenge.id), { isCompleted: true, status: 'succeeded' });
-                console.log(`Challenge ${challenge.id} succeeded!`);
-            }
-
-        } else if (challenge.type === 'savings_goal') {
+        if (challenge.type === 'savings_goal') {
             // Sum savings deposits for the challenge period
             // This requires a way to track savings deposits, assuming it's part of transactions or a separate collection
             // For simplicity, let's assume a 'savings' transaction type or similar

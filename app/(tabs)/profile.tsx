@@ -45,6 +45,7 @@ export default function ProfileScreen() {
         { icon: 'chatbubble-ellipses-outline', label: 'Chatbot', onPress: () => router.push('/chatbot') },
       ],
     },
+
   ];
 
   return (

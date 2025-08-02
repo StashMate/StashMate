@@ -31,7 +31,7 @@ export async function fetchStocks(): Promise<StockData[]> {
       return [];
     }
 
-    return data.map((stock: any) => ({
+    return data.slice(0, 5).map((stock: any) => ({
       symbol: stock.symbol || stock.ticker || '',
       name: stock.name || stock.companyName || '',
       price: stock.price || 0,

@@ -4,7 +4,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { useUser } from '../context/UserContext';
 import { addVault } from '../firebase';
+import { checkAndAwardBadges } from '../services/gamificationService';
 import { getAddVaultStyles } from '../styles/addVault.styles';
 
 export default function AddVaultScreen() {
@@ -12,6 +14,7 @@ export default function AddVaultScreen() {
     const styles = getAddVaultStyles(colors);
     const router = useRouter();
     const { accountId } = useLocalSearchParams();
+    const { user } = useUser();
 
     const [name, setName] = useState('');
     const [targetAmount, setTargetAmount] = useState('');
@@ -38,9 +41,13 @@ export default function AddVaultScreen() {
             deadline,
         };
 
+        console.log("Vault Data being sent:", vaultData);
         const result = await addVault(accountId, vaultData);
         if (result.success) {
             Alert.alert('Success', 'Vault created successfully!');
+            if(user) {
+                checkAndAwardBadges(user.uid);
+            }
             router.back();
         } else {
             Alert.alert('Error', result.error || 'Failed to create vault.');
@@ -122,4 +129,4 @@ export default function AddVaultScreen() {
             </ScrollView>
         </SafeAreaView>
     );
-} 
+}

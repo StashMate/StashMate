@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { Timestamp, collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import { collection, onSnapshot, query, orderBy, where, Timestamp, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { useUser } from './UserContext';
 import { useSavings } from './SavingsContext';
+import { useUser } from './UserContext';
 
 interface Transaction {
   id?: string;
@@ -41,7 +41,7 @@ export const TransactionsProvider = ({ children }) => {
     if (!user) {
       setTransactions([]);
       setLoading(false);
-      return;
+      return () => {}; // Return empty cleanup function
     }
 
     setLoading(true);
@@ -64,7 +64,7 @@ export const TransactionsProvider = ({ children }) => {
       
       // Remove transactions from this source that are no longer in the snapshot
       for (const txId in allTransactionsRef.current) {
-        if (allTransactionsRef.current[txId].sourceId === sourceId && !currentSnapshotIds.has(txId)) {
+        if (allTransactionsRef.current[txId].accountId === sourceId && !currentSnapshotIds.has(txId)) {
           delete allTransactionsRef.current[txId];
         }
       }
@@ -129,15 +129,35 @@ export const TransactionsProvider = ({ children }) => {
       });
     }
 
-    return () => allUnsubscribes.forEach(unsub => unsub());
+    // Return a cleanup function that calls all unsubscribe functions
+    return () => {
+      allUnsubscribes.forEach(unsub => {
+        if (typeof unsub === 'function') {
+          try {
+            unsub();
+          } catch (error) {
+            console.error("Error unsubscribing:", error);
+          }
+        }
+      });
+    };
   }, [user, accounts]);
 
   useEffect(() => {
     if (user && !accountsLoading) {
-      const unsubscribe = refreshTransactions();
+      const unsubscribePromise = refreshTransactions();
+      let cleanup: (() => void) | undefined;
+      
+      // Handle the promise returned by refreshTransactions
+      if (unsubscribePromise && typeof unsubscribePromise.then === 'function') {
+        unsubscribePromise.then(unsubscribeFn => {
+          cleanup = unsubscribeFn;
+        });
+      }
+      
       return () => {
-        if (unsubscribe) {
-          unsubscribe();
+        if (cleanup) {
+          cleanup();
         }
       };
     } else if (!user) {

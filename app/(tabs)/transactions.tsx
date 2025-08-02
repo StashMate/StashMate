@@ -1,7 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { ComponentProps, useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSavings } from '../../context/SavingsContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Transaction, useTransactions } from '../../context/TransactionsContext';
 import { getTransactionsStyles } from '../../styles/transactions.styles';
@@ -13,6 +14,7 @@ export default function TransactionsScreen() {
   const styles = getTransactionsStyles(colors);
   const router = useRouter();
   const { transactions, refreshTransactions, loading, error, deleteTransaction } = useTransactions();
+  const { accounts, loading: savingsLoading, error: savingsError } = useSavings();
 
   useFocusEffect(
     useCallback(() => {
@@ -78,7 +80,9 @@ export default function TransactionsScreen() {
   };
 
   const RenderTransactionItem = ({ item }: { item: Transaction }) => {
-    const transactionDate = typeof item.date === 'string' ? new Date(item.date) : (item.date as any)?.toDate();
+    const transactionDate = item.date
+      ? (typeof (item.date as any).toDate === 'function' ? (item.date as any).toDate() : new Date(item.date as string))
+      : null;
     const formattedDate = transactionDate ? transactionDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
 
     return (
@@ -102,6 +106,9 @@ export default function TransactionsScreen() {
             <Text style={[styles.transactionAmount, item.amount > 0 ? styles.income : styles.expense]}>
               ${Math.abs(item.amount).toFixed(2)}
             </Text>
+            <TouchableOpacity onPress={() => handleDelete(item.id!, item.accountId)} style={styles.deleteButton}>
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
+            </TouchableOpacity>
           </View>
         </View>
       </TouchableOpacity>
@@ -139,12 +146,31 @@ export default function TransactionsScreen() {
             </Text>
         </View>
       </View>
+      <View style={styles.accountSelectorContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <TouchableOpacity
+            style={[styles.accountButton, activeTab === 'All' && styles.selectedAccountButton]}
+            onPress={() => setActiveTab('All')}>
+            <Text style={[styles.accountButtonText, activeTab === 'All' && styles.selectedAccountButtonText]}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.accountButton, activeTab === 'Cash' && styles.selectedAccountButton]}
+            onPress={() => setActiveTab('Cash')}>
+            <Text style={[styles.accountButtonText, activeTab === 'Cash' && styles.selectedAccountButtonText]}>Cash</Text>
+          </TouchableOpacity>
+          {accounts.map(account => (
+            <TouchableOpacity
+              key={account.id}
+              style={[styles.accountButton, activeTab === account.id && styles.selectedAccountButton]}
+              onPress={() => setActiveTab(account.id)}>
+              <Text style={[styles.accountButtonText, activeTab === account.id && styles.selectedAccountButtonText]}>{account.institution}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
       <View style={styles.filtersContainer}>
         <TouchableOpacity style={[styles.filterButton, activeTab === 'All' && styles.activeFilterButton]} onPress={() => setActiveTab('All')}>
           <Text style={[styles.filterText, activeTab === 'All' && styles.activeFilterText]}>All</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterButton, activeTab === 'Cash' && styles.activeFilterButton]} onPress={() => setActiveTab('Cash')}>
-          <Text style={[styles.filterText, activeTab === 'Cash' && styles.activeFilterText]}>Cash</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.filterButton, activeTab === 'Income' && styles.activeFilterButton]} onPress={() => setActiveTab('Income')}>
           <Text style={[styles.filterText, activeTab === 'Income' && styles.activeFilterText]}>Income</Text>
@@ -158,11 +184,11 @@ export default function TransactionsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {loading ? (
+      {loading || savingsLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1 }}/>
-      ) : error ? (
+      ) : error || savingsError ? (
         <View style={styles.emptyStateContainer}>
-          <Text style={styles.emptyStateText}>{error}</Text>
+          <Text style={styles.emptyStateText}>{error || savingsError}</Text>
         </View>
       ) : (
         <FlatList
@@ -192,3 +218,4 @@ export default function TransactionsScreen() {
     </SafeAreaView>
   );
 }
+

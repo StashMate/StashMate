@@ -5,8 +5,8 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { UserProvider, useUser } from '../context/UserContext';
 import { TransactionsProvider } from '../context/TransactionsContext';
+import { UserProvider, useUser } from '../context/UserContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -69,10 +69,9 @@ function RootLayoutNav() {
         <Stack.Screen name="editTransaction" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="linkBank" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="logout" options={{ presentation: 'transparentModal', animation: 'fade_from_bottom', headerShown: false }} />
-        <Stack.Screen name="investments" options={{ headerShown: false }} />
-        <Stack.Screen name="investment/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="preferences" options={{ headerShown: false }} />
+        <Stack.Screen name="selectBank" options={{ headerShown: false }} />
         <Stack.Screen name="account" options={{ headerShown: false }} />
         <Stack.Screen name="rewards" options={{ headerShown: false }} />
         <Stack.Screen name="referrals" options={{ headerShown: false }} />

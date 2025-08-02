@@ -11,6 +11,7 @@ import { useSavings } from '../context/SavingsContext';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAddTransactionStyles } from '../styles/addTransaction.styles';
+import { checkAndAwardBadges } from '../services/gamificationService';
 
 
 export default function AddTransactionScreen() {
@@ -89,18 +90,21 @@ export default function AddTransactionScreen() {
       }
 
       // For cash transactions, store them under a generic 'cash' account or directly under user if no account is selected
-      const transactionCollectionRef = paymentMethod === 'Cash' && !selectedAccountId
-        ? collection(db, 'users', user.uid, 'transactions') // Store directly under user if no account selected for cash
-        : collection(db, 'users', user.uid, 'accounts', selectedAccount?.id || '', 'transactions');
-      
-      if (paymentMethod !== 'Cash' && !selectedAccount) {
-        Alert.alert('Error', 'Please select an account for non-cash transactions.');
-        return;
+      let transactionCollectionRef;
+      if (paymentMethod === 'Cash') {
+        transactionCollectionRef = collection(db, 'users', user.uid, 'transactions');
+      } else {
+        if (!selectedAccountId) {
+          Alert.alert('Error', 'Please select an account for non-cash transactions.');
+          return;
+        }
+        transactionCollectionRef = collection(db, 'users', user.uid, 'accounts', selectedAccountId, 'transactions');
       }
 
       await addDoc(transactionCollectionRef, transactionData);
       Alert.alert('Success', 'Transaction added successfully!');
       refreshTransactions(); // Refresh transactions after successful addition
+      checkAndAwardBadges(user.uid); // Check for new badges
       router.back();
     } catch (error) {
       console.error("Error adding transaction: ", error);
@@ -209,4 +213,4 @@ export default function AddTransactionScreen() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-} 
+}

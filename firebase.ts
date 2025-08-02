@@ -7,7 +7,8 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, query, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch } from "firebase/firestore";
+import { addNotification } from './services/notificationService';
 import { getStorage } from 'firebase/storage';
 // import { FlutterWaveButton, closePaymentModal } from 'flutterwave-react-v3';
 
@@ -121,8 +122,14 @@ export const signInWithEmail = async (email: string, password: string) => {
       });
     }
 
+    await addNotification({
+      userId: user.uid,
+      type: 'info',
+      title: 'Welcome Back!',
+      message: `You have successfully logged in as ${user.displayName || user.email}.`,
+    });
     return { success: true, user: { uid: user.uid, email: user.email, displayName: user.displayName } };
-  } catch (error: any) {
+  } catch (error: any){
     return { success: false, error: error.message };
   }
 };
@@ -156,6 +163,12 @@ export const signInWithGoogle = async (id_token: string) => {
         lastLogin: serverTimestamp(),
         streak: 1,
         timezoneOffset: new Date().getTimezoneOffset(), // Store timezone offset at signup
+      });
+      await addNotification({
+        userId: user.uid,
+        type: 'info',
+        title: 'Welcome to StashMate!',
+        message: 'Your account has been successfully created.',
       });
       return { success: true, user: user, isNewUser: true };
     } else {
@@ -195,6 +208,12 @@ export const signInWithGoogle = async (id_token: string) => {
           streak: 1,
         });
       }
+      await addNotification({
+        userId: user.uid,
+        type: 'info',
+        title: 'Welcome Back!',
+        message: `You have successfully logged in as ${user.displayName || user.email}.`,
+      });
       return { success: true, user: user, isNewUser: false };
     }
   } catch (error: any) {
@@ -318,9 +337,11 @@ export const updateUserProfile = async (userId: string, updatedData: { displayNa
  */
 export const linkAccount = async (userId: string, accountData: { accountName: string; accountType: string; balance: number; institution: string; logoUrl: string; }) => {
   try {
+    const randomBalance = Math.floor(Math.random() * (10000 - 1000 + 1)) + 1000;
     await addDoc(collection(db, 'accounts'), {
       userId,
       ...accountData,
+      balance: randomBalance,
       createdAt: serverTimestamp(),
     });
     return { success: true };
@@ -339,11 +360,24 @@ export const linkAccount = async (userId: string, accountData: { accountName: st
 export const addVault = async (accountId: string, vaultData: { name: string; targetAmount: number; icon: string; deadline: Date; }) => {
   try {
     const vaultsCollectionRef = collection(db, 'accounts', accountId, 'vaults');
+    const existingVaultsSnapshot = await getDocs(vaultsCollectionRef);
+
     await addDoc(vaultsCollectionRef, {
       ...vaultData,
+      deadline: Timestamp.fromDate(vaultData.deadline),
       currentAmount: 0,
       createdAt: serverTimestamp(),
     });
+
+    if (existingVaultsSnapshot.empty) {
+      // This is the user's first vault, send a notification
+      await addNotification({
+        userId: accountId, // Assuming accountId is equivalent to userId for notifications
+        type: 'info',
+        title: 'First Vault Created!',
+        message: `Congratulations! You've created your first savings vault: ${vaultData.name}.`,
+      });
+    }
     return { success: true };
   } catch (error: any) {
     console.error("Error adding vault:", error);
@@ -467,85 +501,9 @@ export const getSavingsAnalytics = async (accountId: string) => {
   }
 };
 
-/**
- * Sets or updates a monthly budget for a specific category for a user.
- * @param {string} userId - The ID of the user.
- * @param {string} category - The category to set the budget for (e.g., "Dining", "Groceries").
- * @param {number} budgetAmount - The monthly budget amount.
- * @returns {Promise<{success: boolean, error?: any}>}
- */
-export const setCategoryBudget = async (userId: string, category: string, budgetAmount: number) => {
-  try {
-    const budgetDocRef = doc(db, 'budgets', `${userId}_${category}`);
-    await setDoc(budgetDocRef, {
-      userId,
-      category,
-      budgetAmount,
-      updatedAt: serverTimestamp(),
-    });
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error setting budget:", error);
-    return { success: false, error: "Failed to set budget." };
-  }
-};
 
-/**
- * Tracks spending against a budget for a specific category and month.
- * @param {string} userId - The ID of the user.
- * @param {string} category - The category to track.
- * @returns {Promise<{success: boolean, spentAmount?: number, budgetAmount?: number, progress?: number, warning?: string, error?: any}>}
- */
-export const trackBudget = async (userId: string, category: string) => {
-  try {
-    // 1. Get the budget for the category
-    const budgetDocRef = doc(db, 'budgets', `${userId}_${category}`);
-    const budgetDoc = await getDoc(budgetDocRef);
 
-    if (!budgetDoc.exists()) {
-      return { success: false, error: "No budget set for this category." };
-    }
-    const { budgetAmount } = budgetDoc.data();
 
-    // 2. Sum expenses for the current month in that category
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    const transactionsQuery = query(
-      collection(db, 'transactions'),
-      where('userId', '==', userId),
-      where('category', '==', category),
-      where('type', '==', 'expense'),
-      where('date', '>=', startOfMonth),
-      where('date', '<=', endOfMonth)
-    );
-
-    const querySnapshot = await getDocs(transactionsQuery);
-    const spentAmount = querySnapshot.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
-
-    // 3. Compare spent amount vs. budget
-    const progress = (spentAmount / budgetAmount);
-    let warning;
-    if (progress >= 1) {
-      warning = `You have exceeded your budget for ${category}.`;
-      // Optional: Lock category here by setting a flag in Firestore, for example.
-    } else if (progress >= 0.8) {
-      warning = `You have spent ${Math.round(progress * 100)}% of your budget for ${category}.`;
-    }
-
-    return {
-      success: true,
-      spentAmount,
-      budgetAmount,
-      progress,
-      warning,
-    };
-  } catch (error: any) {
-    console.error("Error tracking budget:", error);
-    return { success: false, error: "Failed to track budget." };
-  }
-};
 
 
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
@@ -764,19 +722,4 @@ export const uploadImageAndGetURL = async (uri: string, storagePath: string) => 
     return { success: false, error: error.message };
   }
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 export { app, auth, db, storage };
-

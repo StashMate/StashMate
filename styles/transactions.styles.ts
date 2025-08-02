@@ -189,6 +189,10 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
   expense: {
     color: colors.danger,
   },
+  deleteButton: {
+    marginTop: 5,
+    padding: 5,
+  },
   fab: {
     position: 'absolute',
     bottom: 30,

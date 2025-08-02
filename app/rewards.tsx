@@ -1,16 +1,20 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, SectionList, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useUser } from '../context/UserContext';
-import { AwardedBadge, Badge, Challenge, fetchActiveChallenges, fetchAllBadges, fetchAwardedBadges } from '../services/gamificationService';
+import { AwardedBadge, Badge, Challenge, fetchActiveChallenges, fetchAwardedBadges, predefinedBadges } from '../services/gamificationService';
 import { getRewardsStyles } from '../styles/rewards.styles';
+
+
+type Tab = 'badges' | 'challenges';
 
 export default function RewardsScreen() {
   const { colors } = useTheme();
   const styles = getRewardsStyles(colors);
   const { user } = useUser();
 
+  const [activeTab, setActiveTab] = useState<Tab>('badges');
   const [awardedBadges, setAwardedBadges] = useState<AwardedBadge[]>([]);
   const [allBadges, setAllBadges] = useState<Badge[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -23,13 +27,12 @@ export default function RewardsScreen() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [awarded, all, activeChallenges] = await Promise.all([
+        const [awarded, activeChallenges] = await Promise.all([
           fetchAwardedBadges(user.uid),
-          fetchAllBadges(),
           fetchActiveChallenges(user.uid),
         ]);
         setAwardedBadges(awarded);
-        setAllBadges(all);
+        setAllBadges(predefinedBadges); // Use predefined badges
         setChallenges(activeChallenges);
       } catch (err) {
         setError('Failed to load rewards. Please try again later.');
@@ -41,143 +44,151 @@ export default function RewardsScreen() {
     fetchData();
   }, [user]);
 
-  // Combine and sort badges - awarded first, then unobtained
-  const sortedBadges = React.useMemo(() => {
-    // Create a map of awarded badge IDs for quick lookup
+  const { awarded, notAwarded } = React.useMemo(() => {
     const awardedBadgeIds = new Set(awardedBadges.map(badge => badge.id));
-    
-    // Create combined badge list with isAwarded flag
-    const combinedBadges = allBadges.map(badge => ({
-      ...badge,
-      isAwarded: awardedBadgeIds.has(badge.id)
-    }));
-    
-    // Sort badges - awarded first
-    return combinedBadges.sort((a, b) => {
-      if (a.isAwarded && !b.isAwarded) return -1;
-      if (!a.isAwarded && b.isAwarded) return 1;
-      return 0;
+    const awarded: (Badge & { isAwarded: boolean })[] = [];
+    const notAwarded: (Badge & { isAwarded: boolean })[] = [];
+
+    allBadges.forEach(badge => {
+      if (awardedBadgeIds.has(badge.id)) {
+        awarded.push({ ...badge, isAwarded: true });
+      } else {
+        notAwarded.push({ ...badge, isAwarded: false });
+      }
     });
+
+    return { awarded, notAwarded };
   }, [allBadges, awardedBadges]);
 
-  // Format badges into rows for grid display
-  const formattedBadges = React.useMemo(() => {
-    const result = [];
-    for (let i = 0; i < sortedBadges.length; i += 2) {
-      if (i + 1 < sortedBadges.length) {
-        // Add a pair of badges
-        result.push([sortedBadges[i], sortedBadges[i + 1]]);
-      } else {
-        // Add the last badge if there's an odd number
-        result.push([sortedBadges[i]]);
-      }
-    }
-    return result;
-  }, [sortedBadges]);
+  const getValidIconName = (iconName: string): any => {
+    const iconMap: { [key: string]: string } = {
+      'flame': 'fire',
+      'fast-food-outline': 'food-fork-drink',
+      'list-outline': 'format-list-bulleted',
+      'medkit-outline': 'medical-bag',
+      'stats-chart-outline': 'chart-bar',
+      'piggy-bank': 'piggy-bank-outline',
+      'star': 'star-outline',
+      'receipt': 'receipt-outline',
+      'safe': 'safe-outline',
+      'book': 'book-open-outline',
+      'trending-up': 'trending-up-outline',
+      'trending-down': 'trending-down-outline',
+      'wallet-outline': 'wallet-outline',
+    };
+    return iconMap[iconName] || 'trophy-award';
+  };
 
-  const renderBadge = ({ item }) => (
-    <View style={[styles.badgeContainer, !item.isAwarded && styles.blurredBadge]}>
-      <MaterialCommunityIcons name={getValidIconName(item.icon)} size={48} color={colors.primary} />
+  const renderBadge = (item: Badge & { isAwarded: boolean }) => (
+    <View key={item.id} style={[styles.badgeContainer, item.isAwarded && styles.awardedBadge]}>
+      <View style={styles.badgeIconContainer}>
+        <MaterialCommunityIcons name={getValidIconName(item.icon)} size={32} color={item.isAwarded ? colors.primary : colors.secondaryText} />
+      </View>
       <Text style={styles.badgeName}>{item.name}</Text>
       <Text style={styles.badgeDescription}>{item.description}</Text>
     </View>
   );
 
-  // Render a row of badges
-  const renderBadgeRow = ({ item }) => (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12.5 }}>
-      {item.map(badge => (
-        <View key={badge.id} style={{ flex: 1, maxWidth: '48%' }}>
-          {renderBadge({ item: badge })}
+  const renderChallenge = (item: Challenge) => {
+    const progress = Math.min((item.currentValue / item.targetValue) * 100, 100);
+    return (
+      <View key={item.id} style={styles.challengeContainer}>
+        <View style={styles.challengeHeader}>
+          <MaterialCommunityIcons name="bullseye-arrow" size={24} color={colors.primary} style={styles.challengeIcon} />
+          <View style={styles.challengeInfo}>
+            <Text style={styles.challengeName}>{item.name}</Text>
+            <Text style={styles.challengeDescription}>{item.description}</Text>
+          </View>
         </View>
-      ))}
-      {item.length === 1 && <View style={{ flex: 1, maxWidth: '48%' }} />}
-    </View>
-  );
-
-  // Helper function to map invalid icon names to valid ones
-  const getValidIconName = (iconName: string): string => {
-    const iconMap = {
-      'cash-outline': 'cash',
-      'flame': 'fire',
-      'fast-food-outline': 'food',
-      'list-outline': 'format-list-bulleted',
-      'medkit-outline': 'medical-bag',
-      'stats-chart-outline': 'chart-bar'
-    };
-    
-    return iconMap[iconName] || iconName;
+        <View style={styles.progressContainer}>
+          <Text style={styles.progressText}>{`${Math.round(progress)}%`}</Text>
+          <View style={styles.progressBarBackground}>
+            <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+          </View>
+        </View>
+      </View>
+    );
   };
 
-  const renderChallenge = ({ item }) => (
-    <View style={styles.challengeContainer}>
-      <View style={styles.challengeHeader}>
-        <Text style={styles.challengeName}>{item.name}</Text>
-        <Text style={styles.challengeTimeRemaining}>{item.endDate ? new Date(item.endDate.seconds * 1000).toLocaleDateString() : 'N/A'}</Text>
-      </View>
-      <Text style={styles.challengeDescription}>{item.description}</Text>
-      <View style={styles.progressBarContainer}>
-        <View style={[styles.progressBar, { width: `${(item.currentValue / item.targetValue) * 100}%` }]} />
-      </View>
-    </View>
-  );
+ 
 
-  if (loading) {
-    return <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1, justifyContent: 'center' }} />;
-  }
-
-  if (error) {
-    return <View style={styles.container}><Text style={styles.errorText}>{error}</Text></View>;
-  }
-
-  // Create sections for SectionList
-  const sections = [
-    {
-      title: 'My Badges',
-      data: [formattedBadges],
-      renderItem: ({ item }) => (
-        <FlatList
-          data={item}
-          renderItem={renderBadgeRow}
-          keyExtractor={(_, index) => `badge-row-${index}`}
-          showsVerticalScrollIndicator={false}
-          scrollEnabled={false}
-          ListEmptyComponent={<Text style={styles.emptyText}>No badges available yet. Keep it up!</Text>}
-        />
-      )
-    },
-    {
-      title: 'Active Challenges',
-      data: [challenges],
-      renderItem: ({ item }) => (
-        <FlatList
-          data={item}
-          renderItem={renderChallenge}
-          keyExtractor={(challenge) => challenge.id}
-          contentContainerStyle={styles.challengeList}
-          scrollEnabled={false}
-          ListEmptyComponent={<Text style={styles.emptyText}>No active challenges. Check back later!</Text>}
-        />
-      )
+  const renderContent = () => {
+    if (loading) {
+      return <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 50 }} />;
     }
-  ];
+    if (error) {
+      return <Text style={styles.errorText}>{error}</Text>;
+    }
+
+    switch (activeTab) {
+      case 'badges':
+        return (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Earned Badges</Text>
+              {awarded.length > 0 ? (
+                <View style={styles.grid}>
+                  {awarded.map(renderBadge)}
+                </View>
+              ) : (
+                <Text style={styles.emptyText}>No badges earned yet. Keep going!</Text>
+              )}
+            </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>All Badges</Text>
+              {notAwarded.length > 0 ? (
+                <View style={styles.grid}>
+                  {notAwarded.map(renderBadge)}
+                </View>
+              ) : (
+                <Text style={styles.emptyText}>All badges earned!</Text>
+              )}
+            </View>
+          </>
+        );
+      case 'challenges':
+        return (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Active Challenges</Text>
+            {challenges.length > 0 ? (
+              challenges.map(renderChallenge)
+            ) : (
+              <Text style={styles.emptyText}>No active challenges. Check back soon!</Text>
+            )}
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <SectionList
-      style={styles.container}
-      sections={sections}
-      keyExtractor={(item, index) => index.toString()}
-      renderSectionHeader={({ section: { title } }) => (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{title}</Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Rewards</Text>
+        <View style={styles.pointsContainer}>
+          <MaterialCommunityIcons name="star-circle" size={24} color={colors.white} />
+          <Text style={styles.pointsText}>4,200 Points</Text>
         </View>
-      )}
-      ListHeaderComponent={
-        <View style={styles.header}>
-          <Text style={styles.title}>Your Rewards</Text>
-        </View>
-      }
-      stickySectionHeadersEnabled={false}
-    />
+      </View>
+
+      <View style={styles.tabsContainer}>
+        {(['badges', 'challenges'] as Tab[]).map(tab => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.activeTab]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollViewContent}>
+        {renderContent()}
+      </ScrollView>
+    </View>
   );
 }

@@ -9,6 +9,8 @@ import { useUser } from '../context/UserContext';
 import { db, linkAccount } from '../firebase';
 import { getLinkBankStyles } from '../styles/linkBank.styles';
 
+
+
 type AccountType = 'bank' | 'mobileMoney';
 
 export default function LinkBankScreen() {
@@ -27,21 +29,6 @@ export default function LinkBankScreen() {
     const [accountNumber, setAccountNumber] = useState('');
     const [accountName, setAccountName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
-    
-    // Bank logos
-    const bankLogos = [
-        { id: '1', name: 'Absa Bank', logo: require('../assets/images/BankAccountLogo/absa logo.png') },
-        { id: '2', name: 'Ecobank', logo: require('../assets/images/BankAccountLogo/ecobank logo.jpg') },
-        { id: '3', name: 'Stanbic Bank', logo: require('../assets/images/BankAccountLogo/stanbic logo.jpg') },
-        { id: '4', name: 'Zenith Bank', logo: require('../assets/images/BankAccountLogo/zenith logo.jpg') },
-    ];
-    
-    // Mobile Money logos
-    const mobileMoneyLogos = [
-        { id: '1', name: 'MTN Mobile Money', logo: require('../assets/images/MobileMoneyLogo/mtn-logo.jpg') },
-        { id: '2', name: 'AirtelTigo Money', logo: require('../assets/images/MobileMoneyLogo/airteltigo-logo.webp') },
-        { id: '3', name: 'Telecel Cash', logo: require('../assets/images/MobileMoneyLogo/telecel-logo.jpg') },
-    ];
     
     const handleSelectBank = (bank: any) => {
         setSelectedProvider(bank);
@@ -215,53 +202,48 @@ export default function LinkBankScreen() {
                     <>
                         <Text style={styles.sectionTitle}>Select Your Bank</Text>
                         <View style={styles.bankGrid}>
-                            {bankLogos.map((bank) => (
-                                <TouchableOpacity 
-                                    key={bank.id} 
-                                    style={styles.bankCard}
-                                    onPress={() => handleSelectBank(bank)}
-                                >
-                                    <View style={styles.bankLogo}>
-                                        <Image 
-                                            source={bank.logo} 
-                                            style={{ width: 80, height: 50, resizeMode: 'contain' }} 
-                                        />
-                                    </View>
-                                    <Text style={styles.bankName}>{bank.name}</Text>
-                                </TouchableOpacity>
-                            ))}
+                            <TouchableOpacity 
+                                style={styles.bankCard}
+                                onPress={handleManualEntry}
+                            >
+                                <View style={styles.bankLogo}>
+                                    <Feather name="plus-circle" size={40} color={colors.primary} />
+                                </View>
+                                <Text style={styles.bankName}>Other Banks</Text>
+                            </TouchableOpacity>
                         </View>
-                        
-                        <TouchableOpacity 
-                            style={styles.manualEntryButton}
-                            onPress={handleManualEntry}
-                        >
-                            <View style={styles.manualEntryContent}>
-                                <Feather name="search" size={20} color={colors.primary} style={styles.manualEntryIcon} />
-                                <Text style={styles.manualEntryText}>I don't see my bank</Text>
-                            </View>
-                            <Feather name="chevron-right" size={20} color={colors.primary} />
-                        </TouchableOpacity>
                     </>
                 ) : (
                     <>
                         <Text style={styles.sectionTitle}>Select Mobile Money Provider</Text>
                         <View style={styles.bankGrid}>
-                            {mobileMoneyLogos.map((provider) => (
-                                <TouchableOpacity 
-                                    key={provider.id} 
-                                    style={styles.bankCard}
-                                    onPress={() => handleSelectMobileMoney(provider)}
-                                >
-                                    <View style={styles.bankLogo}>
-                                        <Image 
-                                            source={provider.logo} 
-                                            style={{ width: 80, height: 50, resizeMode: 'contain' }} 
-                                        />
-                                    </View>
-                                    <Text style={styles.bankName}>{provider.name}</Text>
-                                </TouchableOpacity>
-                            ))}
+                            <TouchableOpacity 
+                                style={styles.bankCard}
+                                onPress={() => handleSelectMobileMoney({ name: 'MTN Mobile Money' })}
+                            >
+                                <View style={styles.bankLogo}>
+                                    <Feather name="smartphone" size={40} color={colors.primary} />
+                                </View>
+                                <Text style={styles.bankName}>MTN Mobile Money</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={styles.bankCard}
+                                onPress={() => handleSelectMobileMoney({ name: 'AirtelTigo Money' })}
+                            >
+                                <View style={styles.bankLogo}>
+                                    <Feather name="smartphone" size={40} color={colors.primary} />
+                                </View>
+                                <Text style={styles.bankName}>AirtelTigo Money</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={styles.bankCard}
+                                onPress={() => handleSelectMobileMoney({ name: 'Telecel Cash' })}
+                            >
+                                <View style={styles.bankLogo}>
+                                    <Feather name="smartphone" size={40} color={colors.primary} />
+                                </View>
+                                <Text style={styles.bankName}>Telecel Cash</Text>
+                            </TouchableOpacity>
                         </View>
                     </>
                 )}

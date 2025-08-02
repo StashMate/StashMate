@@ -1,12 +1,12 @@
-import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { addDays, isToday, subDays, format } from 'date-fns';
+import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, getDoc, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { trackBudget } from '../firebase'; // Assuming trackBudget is exported from firebase.ts
-import { subDays, isToday, isTomorrow, addDays } from 'date-fns';
+
 
 export interface Notification {
     id: string;
     userId: string;
-    type: 'bill_reminder' | 'budget_alert' | 'streak_warning' | 'info';
+    type: 'bill_reminder' | 'streak_warning' | 'info' | 'gamification_level_up' | 'gamification_badge_unlocked' | 'gamification_challenge_completed';
     title: string;
     message: string;
     read: boolean;
@@ -37,10 +37,7 @@ interface UserData {
     lastLogin?: any; // Timestamp
 }
 
-interface Budget {
-    category: string;
-    budgetAmount: number;
-}
+
 
 /**
  * Generates a list of notifications based on user data, transactions, and budgets.
@@ -56,14 +53,11 @@ export const generateNotifications = async (userId: string): Promise<Notificatio
     const transactionsSnapshot = await getDocs(transactionsQuery);
     const transactions: Transaction[] = transactionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
 
-    // Fetch user's budgets
-    const budgetsQuery = query(collection(db, 'budgets'), where('userId', '==', userId));
-    const budgetsSnapshot = await getDocs(budgetsQuery);
-    const userBudgets: Budget[] = budgetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Budget));
+    
 
     // Fetch user data for streak
     const userDocRef = doc(db, 'users', userId);
-    const userDoc = await getDocs(userDocRef);
+    const userDoc = await getDoc(userDocRef);
     const userData: UserData = userDoc.exists() ? userDoc.data() as UserData : {};
 
     // 1. Bill Reminders (recurring transactions due in 3 days)
@@ -86,36 +80,7 @@ export const generateNotifications = async (userId: string): Promise<Notificatio
         }
     });
 
-    // 2. Budget Alerts (category spending hits 80%/100%)
-    for (const budget of userBudgets) {
-        const budgetStatus = await trackBudget(userId, budget.category);
-        if (budgetStatus.success && budgetStatus.spentAmount !== undefined && budgetStatus.budgetAmount !== undefined) {
-            const progress = budgetStatus.progress || 0;
-            if (progress >= 1 && budgetStatus.warning) {
-                notifications.push({
-                    id: `budget-alert-100-${budget.category}`,
-                    userId,
-                    type: 'budget_alert',
-                    title: 'Budget Exceeded!',
-                    message: `You have exceeded your budget for '${budget.category}'. You've spent $${budgetStatus.spentAmount.toFixed(2)} out of $${budgetStatus.budgetAmount.toFixed(2)}.`,
-                    read: false,
-                    createdAt: serverTimestamp(),
-                    data: { categoryId: budget.category, budgetAmount: budget.budgetAmount, spentAmount: budgetStatus.spentAmount }
-                });
-            } else if (progress >= 0.8 && progress < 1 && budgetStatus.warning) {
-                notifications.push({
-                    id: `budget-alert-80-${budget.category}`,
-                    userId,
-                    type: 'budget_alert',
-                    title: 'Budget Nearing Limit',
-                    message: `You've spent ${Math.round(progress * 100)}% of your budget for '${budget.category}'. You've spent $${budgetStatus.spentAmount.toFixed(2)} out of $${budgetStatus.budgetAmount.toFixed(2)}.`,
-                    read: false,
-                    createdAt: serverTimestamp(),
-                    data: { categoryId: budget.category, budgetAmount: budget.budgetAmount, spentAmount: budgetStatus.spentAmount }
-                });
-            }
-        }
-    }
+    
 
     // 3. Streak Warning (no savings activity 1 day before streak resets)
     if (userData.streak !== undefined && userData.lastLogin) {
@@ -140,8 +105,19 @@ export const generateNotifications = async (userId: string): Promise<Notificatio
     // You can add more logic here for other notification types
     // Example: New feature announcement, significant financial events, etc.
 
+    
+
+    // Save all generated notifications to Firestore
+    for (const notification of notifications) {
+        // We need to omit 'id' and 'createdAt' as addNotification generates them
+        const { id, createdAt, ...notificationToSave } = notification;
+        await addNotification(notificationToSave);
+    }
+
     return notifications;
 };
+
+
 
 /**
  * Marks a specific notification as read in Firestore.
@@ -200,5 +176,20 @@ export const addNotification = async (notificationData: Omit<Notification, 'id' 
     } catch (error) {
         console.error('Error adding notification:', error);
         return null;
+    }
+};
+
+export const fetchUnreadNotificationsCount = async (userId: string): Promise<number> => {
+    try {
+        const q = query(
+            collection(db, 'notifications'),
+            where('userId', '==', userId),
+            where('read', '==', false)
+        );
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.size;
+    } catch (error) {
+        console.error('Error fetching unread notifications count:', error);
+        return 0;
     }
 };

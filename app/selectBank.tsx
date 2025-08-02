@@ -9,7 +9,7 @@ import { getSelectBankStyles } from '../styles/selectBank.styles';
 
 type Bank = {
     id: string;
-    name: string;
+    name: string;   
     code: string;
     logo?: string;
 };

@@ -5,7 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { getNotificationsStyles } from '../styles/notifications.styles';
 import { useRouter } from 'expo-router';
 import { useUser } from '../context/UserContext';
-import { fetchNotifications, markNotificationAsRead, Notification } from '../services/notificationService';
+import { fetchNotifications, markNotificationAsRead, Notification, generateNotifications } from '../services/notificationService';
 
 export default function NotificationsScreen() {
   const { colors } = useTheme();
@@ -17,28 +17,32 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadNotifications = React.useCallback(async () => {
     if (!user) {
       setLoading(false);
       setError("User not logged in.");
       return;
     }
 
-    const loadNotifications = async () => {
-      try {
-        setLoading(true);
-        const fetchedNotifications = await fetchNotifications(user.uid);
-        setNotifications(fetchedNotifications);
-      } catch (err) {
-        console.error("Failed to fetch notifications:", err);
-        setError("Failed to load notifications.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadNotifications();
+    try {
+      setLoading(true);
+      const fetchedNotifications = await fetchNotifications(user.uid);
+      setNotifications(fetchedNotifications);
+    } catch (err) {
+      console.error("Failed to fetch notifications:", err);
+      setError("Failed to load notifications.");
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  const handleRefresh = () => {
+    loadNotifications();
+  };
 
   const handleNotificationPress = async (notificationId: string) => {
     if (user) {
@@ -67,10 +71,13 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()}>
           <Feather name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
+        <TouchableOpacity onPress={handleRefresh}>
+          <Feather name="refresh-cw" size={20} color={colors.text} />
+        </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         {notifications.length === 0 ? (
@@ -91,4 +98,4 @@ export default function NotificationsScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-} 
+}

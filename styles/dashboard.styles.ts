@@ -288,7 +288,7 @@ export const getDashboardStyles = (colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  investmentCategory: {
+  investmentCard: {
     backgroundColor: colors.card,
     borderRadius: 15,
     padding: 15,
@@ -300,57 +300,66 @@ export const getDashboardStyles = (colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 2,
     elevation: 3,
   },
-  investmentCategoryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 10,
-  },
-  investmentItem: {
+  investmentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 10,
+  },
+  investmentTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  investmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.separator,
+  },
+  investmentIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.iconBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  investmentDetails: {
+    flex: 1,
   },
   investmentName: {
     fontSize: 16,
+    fontWeight: 'bold',
     color: colors.text,
-    flex: 1,
+  },
+  investmentSymbol: {
+    fontSize: 14,
+    color: colors.secondaryText,
+  },
+  investmentValue: {
+    alignItems: 'flex-end',
   },
   investmentPrice: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: colors.text,
   },
-  investmentSummaryCard: {
-    backgroundColor: colors.card,
-    borderRadius: 15,
-    padding: 20,
+  investmentChange: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  viewAllButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
     marginHorizontal: 20,
     marginTop: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-    alignItems: 'center',
   },
-  investmentSummaryTitle: {
+  viewAllButtonText: {
     fontSize: 16,
-    color: colors.secondaryText,
-    marginBottom: 5,
-  },
-  investmentSummaryValue: {
-    fontSize: 30,
     fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 10,
-  },
-  investmentSummaryAction: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
 });

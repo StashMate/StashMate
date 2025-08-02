@@ -11,16 +11,18 @@ export const getNotificationsStyles = (colors: ThemeColors) => StyleSheet.create
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    justifyContent: 'space-between', // Changed to space-between
+    paddingHorizontal: 20, // Use paddingHorizontal instead of padding
     paddingTop: 20,
-    position: 'relative',
+    borderBottomWidth: 1, // Added borderBottomWidth
     borderBottomColor: colors.separator,
+    paddingBottom: 10, // Added paddingBottom
   },
   backButton: {
-    position: 'absolute',
-    left: 20,
-    top: 20,
+    // Removed absolute positioning
+  },
+  refreshButton: {
+    // New style for refresh button if needed, but backButton style can be reused
   },
   headerTitle: {
     fontSize: 20,
