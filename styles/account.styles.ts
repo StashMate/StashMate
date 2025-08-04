@@ -1,52 +1,44 @@
 import { StyleSheet } from 'react-native';
-import { Colors } from '../constants/Colors';
 
-type ThemeColors = typeof Colors.light | typeof Colors.dark;
-
-export const getAccountStyles = (colors: ThemeColors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginLeft: 20,
-    color: colors.text,
-  },
-  section: {
-    marginTop: 25,
-    marginHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 10,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  menuIcon: {
-    width: 45,
-    height: 45,
-    borderRadius: 10,
-    backgroundColor: colors.iconBackground,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  menuText: {
-    fontSize: 16,
-    color: colors.text,
-    flex: 1,
-  },
-}); 
+export const getAccountStyles = (colors) => StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.background,
+    },
+    header: {
+        padding: 20,
+        paddingTop: 40,
+        backgroundColor: colors.background,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    headerTitle: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: colors.text,
+    },
+    menuContainer: {
+        marginTop: 30,
+        paddingHorizontal: 20,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        backgroundColor: colors.card,
+        borderRadius: 15,
+        marginBottom: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    menuItemText: {
+        flex: 1,
+        marginLeft: 20,
+        fontSize: 18,
+        color: colors.text,
+    },
+});

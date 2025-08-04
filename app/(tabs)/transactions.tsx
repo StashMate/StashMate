@@ -27,11 +27,16 @@ export default function TransactionsScreen() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   const filteredTransactions = useMemo(() => {
-    let filtered = transactions.filter(t => t.accountId); // Only show transactions with an accountId
+    let filtered = transactions; // Start with all transactions
 
     if (selectedAccountId) {
       filtered = filtered.filter(t => t.accountId === selectedAccountId);
     }
+    // Ensure that if no account is selected, all transactions with an accountId are shown
+    if (!selectedAccountId) {
+      filtered = filtered.filter(t => t.accountId);
+    }
+
     if (activeTab === 'Received') {
       filtered = filtered.filter(t => t.type === 'income');
     } else if (activeTab === 'Sent') {
@@ -45,7 +50,7 @@ export default function TransactionsScreen() {
       );
     }
     return filtered;
-  }, [activeTab, searchQuery, transactions]);
+  }, [activeTab, searchQuery, transactions, selectedAccountId]);
 
   const summary = useMemo(() => {
     const now = new Date();
@@ -54,12 +59,18 @@ export default function TransactionsScreen() {
     startOfWeek.setDate(today.getDate() - today.getDay());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const daily = filteredTransactions.filter(t => new Date(t.date) >= today).reduce((sum, t) => sum + t.amount, 0);
-    const weekly = filteredTransactions.filter(t => new Date(t.date) >= startOfWeek).reduce((sum, t) => sum + t.amount, 0);
-    const monthly = filteredTransactions.filter(t => new Date(t.date) >= startOfMonth).reduce((sum, t) => sum + t.amount, 0);
+    const daily = filteredTransactions.filter(t => new Date(t.date) >= today).reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const weekly = filteredTransactions.filter(t => new Date(t.date) >= startOfWeek).reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const monthly = filteredTransactions.filter(t => new Date(t.date) >= startOfMonth).reduce((sum, t) => sum + Math.abs(t.amount), 0);
     const totalTransactions = filteredTransactions.length;
+    const totalIncome = filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const totalExpense = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
-    return { daily, weekly, monthly, totalTransactions };
+    const dates = filteredTransactions.map(t => new Date(t.date as string)).sort((a, b) => a.getTime() - b.getTime());
+    const oldestDate = dates.length > 0 ? dates[0] : null;
+    const newestDate = dates.length > 0 ? dates[dates.length - 1] : null;
+
+    return { daily, weekly, monthly, totalTransactions, totalIncome, totalExpense, oldestDate, newestDate };
   }, [filteredTransactions]);
 
   const groupedTransactions = useMemo(() => filteredTransactions.reduce((acc, tx) => {
@@ -73,25 +84,6 @@ export default function TransactionsScreen() {
     acc[date].push(tx);
     return acc;
   }, {} as Record<string, Transaction[]>), [filteredTransactions]);
-
-
-
-  const handleDelete = (transactionId: string, accountId?: string | null) => {
-    Alert.alert(
-      'Delete Transaction',
-      'Are you sure you want to delete this transaction?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteTransaction(transactionId, accountId);
-          },
-        },
-      ]
-    );
-  };
 
   const RenderTransactionItem = ({ item }: { item: Transaction }) => {
     const transactionDate = item.date
@@ -126,9 +118,6 @@ export default function TransactionsScreen() {
             <Text style={[styles.transactionAmount, isReceived ? styles.income : styles.expense]}>
               {isReceived ? '+' : '-'}${Math.abs(item.amount).toFixed(2)}
             </Text>
-            <TouchableOpacity onPress={() => handleDelete(item.id!, item.accountId)} style={styles.deleteButton}>
-              <Ionicons name="trash-outline" size={20} color={colors.error} />
-            </TouchableOpacity>
           </View>
         </View>
       </TouchableOpacity>
@@ -137,90 +126,26 @@ export default function TransactionsScreen() {
 
   const RenderAccountItem = ({ item }: { item: any }) => {
     const isSelected = item.id === selectedAccountId;
-    const iconName = item.type === 'mobile_money' ? 'cellphone' : 'bank';
+    const iconName = item.type === 'mobile_money' ? 'cellphone' : 'credit-card';
 
     return (
       <TouchableOpacity 
-        style={[styles.accountItem, isSelected && styles.selectedAccountItem]}
+        style={[styles.accountCard, isSelected && styles.selectedAccountCard]}
         onPress={() => setSelectedAccountId(item.id)}
       >
-        <View style={styles.accountLogo}>
-          <MaterialCommunityIcons name={iconName} size={24} color={colors.primary} />
+        <View style={styles.accountCardHeader}>
+          <MaterialCommunityIcons name={iconName} size={30} color={colors.primary} marginRight={10} />
+          <View>
+            <Text style={styles.accountName}>{item.institution}</Text>
+            <Text style={styles.accountType}>{item.accountName}</Text>
+          </View>
         </View>
-        <View style={styles.accountDetails}>
-          <Text style={styles.accountName}>{item.name}</Text>
-          <Text style={styles.accountBalance}>${item.balance.toFixed(2)}</Text>
+        <View style={styles.accountCardContent}>
+          <Text style={styles.accountBalance}>${item.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
         </View>
       </TouchableOpacity>
     );
   };
-
-  const ListHeader = () => (
-    <>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Transactions</Text>
-      </View>
-      <View style={styles.accountListContainer}>
-        <Text style={styles.accountListTitle}>Linked Accounts</Text>
-        <FlatList
-          data={accounts}
-          renderItem={RenderAccountItem}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-        />
-      </View>
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} style={styles.searchIcon} />
-        <TextInput 
-            placeholder="Search transactions" 
-            style={styles.searchInput}
-            placeholderTextColor={colors.secondaryText}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-        />
-      </View>
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'History' && styles.activeTabButton]}
-          onPress={() => setActiveTab('History')}>
-          <Text style={[styles.tabButtonText, activeTab === 'History' && styles.activeTabButtonText]}>History</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'Received' && styles.activeTabButton]}
-          onPress={() => setActiveTab('Received')}>
-          <Text style={[styles.tabButtonText, activeTab === 'Received' && styles.activeTabButtonText]}>Received</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'Sent' && styles.activeTabButton]}
-          onPress={() => setActiveTab('Sent')}>
-          <Text style={[styles.tabButtonText, activeTab === 'Sent' && styles.activeTabButtonText]}>Sent</Text>
-        </TouchableOpacity>
-      </View>
-      {activeTab !== 'History' && (
-        <View style={styles.summaryContainer}>
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryLabel}>Today</Text>
-            <Text style={styles.summaryValue}>${summary.daily.toFixed(2)}</Text>
-          </View>
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryLabel}>This Week</Text>
-            <Text style={styles.summaryValue}>${summary.weekly.toFixed(2)}</Text>
-          </View>
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryLabel}>This Month</Text>
-            <Text style={styles.summaryValue}>${summary.monthly.toFixed(2)}</Text>
-          </View>
-        </View>
-      )}
-      {activeTab === 'History' && (
-        <View style={styles.summaryContainer}>
-          <Text style={styles.summaryLabel}>Total Transactions</Text>
-          <Text style={styles.summaryValue}>{summary.totalTransactions}</Text>
-        </View>
-      )}
-    </>
-  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -231,26 +156,95 @@ export default function TransactionsScreen() {
           <Text style={styles.emptyStateText}>{error || savingsError}</Text>
         </View>
       ) : (
-        <FlatList
-          data={Object.keys(groupedTransactions)}
-          keyExtractor={(date) => date}
-          ListHeaderComponent={ListHeader}
-          stickyHeaderIndices={[0]}
-          renderItem={({ item: date }) => (
-            <View>
-              <Text style={styles.dateHeader}>{date}</Text>
-              {groupedTransactions[date].map((tx) => (
-                <RenderTransactionItem key={tx.id} item={tx} />
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Transactions</Text>
+          </View>
+          <View style={styles.accountListContainer}>
+            <Text style={styles.accountListTitle}>Linked Accounts</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {accounts.map((item) => (
+                <RenderAccountItem key={item.id} item={item} />
               ))}
+            </ScrollView>
+          </View>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} style={styles.searchIcon} />
+            <TextInput 
+                placeholder="Search transactions" 
+                style={styles.searchInput}
+                placeholderTextColor={colors.secondaryText}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+            />
+          </View>
+          <View style={styles.tabsContainer}>
+            <TouchableOpacity 
+              style={[styles.tabButton, activeTab === 'History' && styles.activeTabButton]}
+              onPress={() => setActiveTab('History')}>
+              <Text style={[styles.tabButtonText, activeTab === 'History' && styles.activeTabButtonText]}>History</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.tabButton, activeTab === 'Received' && styles.activeTabButton]}
+              onPress={() => setActiveTab('Received')}>
+              <Text style={[styles.tabButtonText, activeTab === 'Received' && styles.activeTabButtonText]}>Received</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.tabButton, activeTab === 'Sent' && styles.activeTabButton]}
+              onPress={() => setActiveTab('Sent')}>
+              <Text style={[styles.tabButtonText, activeTab === 'Sent' && styles.tabButtonText]}>Sent</Text>
+            </TouchableOpacity>
+          </View>
+          {activeTab !== 'History' && (
+            <View style={styles.summaryContainer}>
+              <View style={styles.summaryBox}>
+                <Text style={styles.summaryLabel}>Today</Text>
+                <Text style={styles.summaryValue}>${summary.daily.toFixed(2)}</Text>
+              </View>
+              <View style={styles.summaryBox}>
+                <Text style={styles.summaryLabel}>This Week</Text>
+                <Text style={styles.summaryValue}>${summary.weekly.toFixed(2)}</Text>
+              </View>
+              <View style={styles.summaryBox}>
+                <Text style={styles.summaryLabel}>This Month</Text>
+                <Text style={styles.summaryValue}>${summary.monthly.toFixed(2)}</Text>
+              </View>
             </View>
           )}
-          ListEmptyComponent={
+          {activeTab === 'History' && (
+            <View style={styles.historySummaryCard}>
+              <Text style={styles.historySummaryTitle}>Transaction Overview</Text>
+              <View style={styles.historySummaryRow}>
+                <View style={styles.historySummaryItem}>
+                  <Text style={styles.historySummaryLabel}>Total Transactions</Text>
+                  <Text style={styles.historySummaryValue}>{summary.totalTransactions}</Text>
+                </View>
+              </View>
+              {summary.oldestDate && summary.newestDate && (
+                <View style={styles.historySummaryDateRange}>
+                  <Text style={styles.historySummaryValue}>{summary.oldestDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
+                  <Text style={styles.dateRangeSeparator}> - </Text>
+                  <Text style={styles.historySummaryValue}>{summary.newestDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
+                </View>
+              )}
+            </View>
+          )}
+          {Object.keys(groupedTransactions).length > 0 ? (
+            Object.keys(groupedTransactions).map((date) => (
+              <View key={date}>
+                <Text style={styles.dateHeader}>{date}</Text>
+                {groupedTransactions[date].map((tx) => (
+                  <RenderTransactionItem key={tx.id} item={tx} />
+                ))}
+              </View>
+            ))
+          ) : (
             <View style={styles.emptyStateContainer}>
               <Text style={styles.emptyStateText}>No transactions found.</Text>
               <Text style={styles.emptyStateText}>Link a bank account to get started!</Text>
             </View>
-          }
-        />
+          )}
+        </ScrollView>
       )}
     </SafeAreaView>
   );

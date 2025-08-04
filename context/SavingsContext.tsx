@@ -1,15 +1,13 @@
-
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { db } from '../firebase';
-import { useUser } from './UserContext';
+import React, { createContext, useCallback, useContext, useEffect, useState, } from 'react';
+import { dummyAccounts } from '../data/simulatedTransactions';
 
 interface Account {
     id: string;
     accountName: string;
     balance: number;
     institution: string;
-    logoUrl: string;
+    logoUrl?: string;
+    type?: string;
 }
 
 interface Vault {
@@ -30,80 +28,54 @@ interface SavingsContextData {
     setSelectedAccount: (account: Account | null) => void;
     refetch: () => void;
     refreshAccounts: () => Promise<void>;
+    savingsStreak: number; // Add savingsStreak to the interface
 }
 
 const SavingsContext = createContext<SavingsContextData>({} as SavingsContextData);
 
 export const SavingsProvider = ({ children }: { children: React.ReactNode }) => {
-    const { user } = useUser();
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
     const [vaults, setVaults] = useState<Vault[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [savingsStreak, setSavingsStreak] = useState(0);
 
-    const fetchAccounts = useCallback(async () => {
-        if (!user) return;
 
-        setLoading(true);
-        setError(null);
+  const fetchAccounts = useCallback(async () => {                                                            
+      setLoading(true);                                                                                      
+   setError(null);                                                                                        
+   setAccounts(dummyAccounts);                                                                         
+    if (dummyAccounts.length > 0 && !selectedAccount) {                                                    
+      setSelectedAccount(dummyAccounts[0]);                                                              
+   }                                                                                                      
+    setLoading(false);                                                                                     
+}, [selectedAccount]);                                                                                     
+                                                                                                           
+ const fetchVaults = useCallback(async () => {                                                              
+   // For now, vaults will remain empty or can be simulated similarly if needed                           
+    setVaults([]);                                                                                         
+ }, []);                                                                                                    
+                                                                                                           
+useEffect(() => {                                                                                          
+  fetchAccounts();                                                                                       
+   fetchVaults();                                                                                         
+    // Simulate a savings streak for demonstration                                                         
+     setSavingsStreak(Math.floor(Math.random() * 30) + 1); // Random streak between 1                                                                                                                 
+  }, [fetchAccounts, fetchVaults]);                                                                     
 
-        const accountsQuery = query(collection(db, 'accounts'), where('userId', '==', user.uid));
-        const unsubscribe = onSnapshot(accountsQuery, (snapshot) => {
-            const fetchedAccounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Account));
-            setAccounts(fetchedAccounts);
-            if (fetchedAccounts.length > 0 && !selectedAccount) {
-                setSelectedAccount(fetchedAccounts[0]);
-            }
-            setLoading(false);
-        }, (err) => {
-            setError("Failed to fetch accounts.");
-            setLoading(false);
-        });
-
-        return unsubscribe;
-    }, [user, selectedAccount]);
-
-    const fetchVaults = useCallback(async () => {
-        if (!selectedAccount) return;
-
-        const vaultsQuery = query(collection(db, 'accounts', selectedAccount.id, 'vaults'));
-        const unsubscribe = onSnapshot(vaultsQuery, (snapshot) => {
-            const fetchedVaults = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vault));
-            setVaults(fetchedVaults);
-        }, (err) => {
-            setError("Failed to fetch vaults.");
-        });
-
-        return unsubscribe;
-    }, [selectedAccount]);
-
-    useEffect(() => {
-        const unsubscribe = fetchAccounts();
-        return () => {
-            unsubscribe?.then(u => u());
-        };
-    }, [fetchAccounts]);
-
-    useEffect(() => {
-        const unsubscribe = fetchVaults();
-        return () => {
-            unsubscribe?.then(u => u());
-        };
-    }, [fetchVaults]);
 
     const refetch = () => {
         fetchAccounts();
         fetchVaults();
     }
 
-    // Alias for refetch to match the interface
     const refreshAccounts = useCallback(async () => {
         return refetch();
     }, [refetch]);
 
     return (
-        <SavingsContext.Provider value={{ accounts, vaults, loading, error, selectedAccount, setSelectedAccount, refetch, refreshAccounts }}>
+        <SavingsContext.Provider value={{ accounts, vaults, loading, error, selectedAccount, setSelectedAccount, refetch, refreshAccounts, savingsStreak }}>
             {children}
         </SavingsContext.Provider>
     );

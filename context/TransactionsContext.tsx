@@ -4,6 +4,7 @@ import { Alert } from 'react-native';
 import { db } from '../firebase';
 import { useSavings } from './SavingsContext';
 import { useUser } from './UserContext';
+import { simulatedTransactions } from '../data/simulatedTransactions';
 
 interface Transaction {
   id?: string;
@@ -38,110 +39,25 @@ export const TransactionsProvider = ({ children }) => {
   const [updateTrigger, setUpdateTrigger] = useState(0); // To force re-render when allTransactionsRef changes
 
   const refreshTransactions = useCallback(async () => {
-    if (!user) {
-      setTransactions([]);
-      setLoading(false);
-      return () => {}; // Return empty cleanup function
-    }
-
     setLoading(true);
     setError(null);
 
-    allTransactionsRef.current = {}; // Clear previous transactions
-    const allUnsubscribes: (() => void)[] = [];
-    let completedFetches = 0;
-    const totalFetches = accounts.length + 1; // +1 for the user-level transactions
+    // Simulate fetching transactions
+    const fetchedTransactions = simulatedTransactions.map(tx => ({
+      ...tx,
+      date: tx.date instanceof Timestamp ? tx.date.toDate().toISOString() : tx.date,
+    }));
 
-    const handleSnapshot = (snapshot: any, sourceId: string) => {
-      const fetchedTransactions: Transaction[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: doc.data().date instanceof Timestamp ? doc.data().date.toDate().toISOString() : doc.data().date,
-      })) as Transaction[];
+    allTransactionsRef.current = {};
+    fetchedTransactions.forEach(tx => {
+      allTransactionsRef.current[tx.id!] = tx;
+    });
 
-      // Update the ref with transactions from this specific snapshot
-      const currentSnapshotIds = new Set(fetchedTransactions.map(tx => tx.id));
-      
-      // Remove transactions from this source that are no longer in the snapshot
-      for (const txId in allTransactionsRef.current) {
-        if (allTransactionsRef.current[txId].accountId === sourceId && !currentSnapshotIds.has(txId)) {
-          delete allTransactionsRef.current[txId];
-        }
-      }
+    setUpdateTrigger(prev => prev + 1);
+    setLoading(false);
 
-      fetchedTransactions.forEach(tx => {
-        allTransactionsRef.current[tx.id!] = { ...tx, sourceId }; // Add/update transactions with sourceId
-      });
-
-      setUpdateTrigger(prev => prev + 1); // Trigger re-render
-    };
-
-    const handleCompletion = () => {
-      completedFetches++;
-      if (completedFetches === totalFetches) {
-        setLoading(false);
-      }
-    };
-
-    // 1. Fetch transactions directly under the user (for cash transactions)
-    const userTransactionsQuery = query(
-      collection(db, 'users', user.uid, 'transactions'),
-      orderBy('date', 'desc')
-    );
-    const unsubscribeUser = onSnapshot(userTransactionsQuery, 
-      (snapshot) => {
-        handleSnapshot(snapshot, 'user');
-        handleCompletion();
-      },
-      (err) => {
-        console.error("Firestore Error (user transactions):", err);
-        setError("Failed to load some transactions.");
-        handleCompletion();
-      }
-    );
-    allUnsubscribes.push(unsubscribeUser);
-
-    // 2. Fetch transactions for each linked account
-    if (accounts.length === 0) {
-      // If no accounts, and we've already fetched user-level, we can set loading to false
-      if (completedFetches === totalFetches) {
-        setLoading(false);
-      }
-    } else {
-      accounts.forEach(account => {
-        const accountTransactionsQuery = query(
-          collection(db, 'users', user.uid, 'accounts', account.id, 'transactions'),
-          orderBy('date', 'desc')
-        );
-
-        const unsubscribeAccount = onSnapshot(accountTransactionsQuery, 
-          (snapshot) => {
-            handleSnapshot(snapshot, account.id);
-            handleCompletion();
-          },
-          (err) => {
-            console.error("Firestore Error (account transactions):", err);
-            setError("Failed to load some transactions.");
-            handleCompletion();
-          }
-        );
-        allUnsubscribes.push(unsubscribeAccount);
-      });
-    }
-
-    // Return a cleanup function that calls all unsubscribe functions
-    return () => {
-      allUnsubscribes.forEach(unsub => {
-        if (typeof unsub === 'function') {
-          try {
-            unsub();
-          } catch (error) {
-            console.error("Error unsubscribing:", error);
-          }
-        }
-      });
-    };
-  }, [user, accounts]);
+    return () => {}; // No cleanup needed for simulated data
+  }, []);
 
   useEffect(() => {
     if (user && !accountsLoading) {
@@ -177,27 +93,11 @@ export const TransactionsProvider = ({ children }) => {
   }, [updateTrigger]);
 
   const deleteTransaction = useCallback(async (transactionId: string, accountId?: string | null) => {
-    if (!user) return;
-
-    try {
-      let docRef;
-      if (accountId) {
-        docRef = doc(db, 'users', user.uid, 'accounts', accountId, 'transactions', transactionId);
-      } else {
-        docRef = doc(db, 'users', user.uid, 'transactions', transactionId);
-      }
-      await deleteDoc(docRef);
-      Alert.alert('Success', 'Transaction deleted successfully!');
-      refreshTransactions(); // Refresh the list after deletion
-    } catch (error) {
-      console.error("Error deleting transaction: ", error);
-      Alert.alert('Error', 'Failed to delete transaction.');
-    }
-  }, [user, refreshTransactions]);
+    Alert.alert('Info', 'Deletion is disabled in simulation mode.');
+  }, []);
 
   const addTransaction = (transaction: Transaction) => {
-    // For now, we'll just add to local state. In a real app, this would involve writing to Firebase.
-    setTransactions(prevTransactions => [transaction, ...prevTransactions]);
+    Alert.alert('Info', 'Adding transactions is disabled in simulation mode.');
   };
 
   return (

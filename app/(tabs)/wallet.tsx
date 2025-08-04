@@ -321,7 +321,7 @@ export default function SavingsScreen() {
                                     />
                                 </View>
                                 <Text style={styles.progressText}>{overallProgress.toFixed(0)}% Overall Progress</Text>
-                                <Text style={styles.savingsPercentageText}>You've saved {savingsPercentage.toFixed(0)}% of your account balance!</Text>
+                                <Text style={styles.savingsPercentageText}>You&apos;ve saved {savingsPercentage.toFixed(0)}% of your account balance!</Text>
                             </View>
 
                             <Text style={styles.sectionTitle}>Your Savings Goals</Text>
