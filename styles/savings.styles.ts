@@ -139,7 +139,7 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
   },
   progressBarContainer: {
-    height: 10,
+    height: 15,
     backgroundColor: colors.separator,
     borderRadius: 5,
     overflow: 'hidden',
@@ -420,5 +420,11 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 16,
     color: colors.primary,
     fontWeight: 'bold',
+  },
+  streakText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginTop: -20,
   },
 });

@@ -5,6 +5,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { BudgetsProvider } from '../context/BudgetsContext';
 import { TransactionsProvider } from '../context/TransactionsContext';
 import { UserProvider, useUser } from '../context/UserContext';
 
@@ -35,7 +36,9 @@ export default function RootLayout() {
       <ThemeProvider>
         <SavingsProvider>
           <TransactionsProvider>
-            <RootLayoutNav />
+            <BudgetsProvider>
+              <RootLayoutNav />
+            </BudgetsProvider>
           </TransactionsProvider>
         </SavingsProvider>
       </ThemeProvider>
@@ -65,7 +68,6 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="addVault" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="addTransaction" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="editTransaction" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="linkBank" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="logout" options={{ presentation: 'transparentModal', animation: 'fade_from_bottom', headerShown: false }} />

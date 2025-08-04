@@ -22,30 +22,6 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     fontWeight: 'bold',
     color: colors.text,
   },
-  accountSelectorContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: colors.background,
-  },
-  accountButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    marginHorizontal: 5,
-  },
-  selectedAccountButton: {
-    backgroundColor: colors.primary,
-  },
-  accountButtonText: {
-    color: colors.primary,
-    fontWeight: 'bold',
-  },
-  selectedAccountButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
   searchContainer: {
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -66,63 +42,82 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     zIndex: 1,
     color: colors.secondaryText,
   },
-  filtersContainer: {
+  tabsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    justifyContent: 'space-around',
     backgroundColor: colors.background,
+    paddingVertical: 10,
+    marginHorizontal: 20,
+    borderRadius: 10,
+    marginTop: 10,
+    borderBottomWidth: 1,
     borderBottomColor: colors.separator,
   },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.iconBackground,
-    borderRadius: 20,
+  tabButton: {
     paddingVertical: 8,
-    paddingHorizontal: 15,
-    marginRight: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
   },
-  filterText: {
-    color: colors.text,
-    marginRight: 5,
-    fontWeight: '500',
-  },
-  activeFilterButton: {
+  activeTabButton: {
     backgroundColor: colors.primary,
   },
-  activeFilterText: {
+  tabButtonText: {
+    color: colors.text,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  activeTabButtonText: {
     color: '#fff',
   },
-  summaryContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  accountListContainer: {
     paddingHorizontal: 20,
-    marginVertical: 10,
-    backgroundColor: colors.background,
+    marginTop: 20,
   },
-  summaryCard: {
-    flex: 1,
+  accountListTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 10,
+  },
+  accountItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.card,
     borderRadius: 10,
     padding: 15,
-    alignItems: 'center',
-    marginHorizontal: 5,
+    marginRight: 15,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  summaryLabel: {
+  selectedAccountItem: {
+    borderColor: colors.primary,
+    backgroundColor: colors.selectedCard,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  accountLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 15,
+    backgroundColor: colors.iconBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  accountDetails: {
+    flex: 1,
+  },
+  accountName: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  accountBalance: {
     color: colors.secondaryText,
     fontSize: 14,
-    marginBottom: 5,
-  },
-  summaryAmount: {
-    color: colors.text,
-    fontSize: 18,
     fontWeight: 'bold',
-  },
-  incomeText: {
-    color: colors.success,
-  },
-  expenseText: {
-    color: colors.danger,
   },
   dateHeader: {
     color: colors.secondaryText,
@@ -173,6 +168,11 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     fontSize: 14,
     fontStyle: 'italic',
   },
+  transactionDate: {
+    color: colors.secondaryText,
+    fontSize: 12,
+    marginTop: 4,
+  },
   transactionPaymentMethod: {
     color: colors.secondaryText,
     fontSize: 12,
@@ -211,6 +211,28 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     alignItems: 'center',
     padding: 20,
   },
+  summaryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 20,
+    backgroundColor: colors.card,
+    marginHorizontal: 20,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  summaryBox: {
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    marginBottom: 5,
+  },
+  summaryValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
   emptyStateText: {
     color: colors.secondaryText,
     fontSize: 16,
@@ -227,4 +249,4 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     fontWeight: 'bold',
     color: colors.text,
   },
-}); 
+});

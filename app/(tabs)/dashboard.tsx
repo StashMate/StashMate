@@ -26,7 +26,7 @@ export default function DashboardScreen() {
   const dashboardStyles = getDashboardStyles(colors);
   const router = useRouter();
   const { user } = useUser();
-  const { accounts, vaults, loading: savingsLoading, error: savingsError } = useSavings();
+  const { accounts, vaults, loading: savingsLoading, error: savingsError, savingsStreak } = useSavings();
   const { transactions, refreshTransactions, loading: transactionsLoading, error: transactionsError } = useTransactions();
   const { netBalance, loading: netBalanceLoading, error: netBalanceError } = useNetBalance();
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
@@ -163,18 +163,18 @@ export default function DashboardScreen() {
 
         {/* Quick Actions */}
         <View style={dashboardStyles.quickActionsContainer}>
-          <TouchableOpacity style={dashboardStyles.quickActionButton} onPress={() => router.push('/addTransaction')}>
-            <Ionicons name="add-circle-outline" size={28} color={colors.primary} />
-            <Text style={dashboardStyles.quickActionButtonText}>Add Transaction</Text>
-          </TouchableOpacity>
           <TouchableOpacity style={dashboardStyles.quickActionButton} onPress={() => router.push('/addVault')}>
             <Ionicons name="wallet-outline" size={28} color={colors.primary} />
-            <Text style={dashboardStyles.quickActionButtonText}>Add Vault</Text>
+            <Text style={dashboardStyles.quickActionButtonText}>Add Saving</Text>
           </TouchableOpacity>
           <TouchableOpacity style={dashboardStyles.quickActionButton} onPress={() => router.push('/linkBank')}>
             <Ionicons name="link-outline" size={28} color={colors.primary} />
             <Text style={dashboardStyles.quickActionButtonText}>Link Account</Text>
           </TouchableOpacity>
+          <View style={dashboardStyles.quickActionButton}>
+            <Ionicons name="flame" size={28} color={savingsStreak > 0 ? colors.accent : colors.secondaryText} />
+            <Text style={dashboardStyles.quickActionButtonText}>{savingsStreak} Day Streak</Text>
+          </View>
         </View>
 
         {/* Accounts Overview */}
@@ -191,7 +191,7 @@ export default function DashboardScreen() {
                   {account.logoUrl ? (
                     <Image source={{ uri: account.logoUrl }} style={dashboardStyles.accountLogo} />
                   ) : (
-                    <MaterialCommunityIcons name={account.icon as IconName || 'bank'} size={40} color={colors.primary} />
+                    <MaterialCommunityIcons name={account.type === 'mobile_money' ? 'cellphone' : 'bank'} size={40} color={colors.primary} />
                   )}
                   <View>
                     <Text style={dashboardStyles.accountName}>{account.institution}</Text>
@@ -222,7 +222,7 @@ export default function DashboardScreen() {
               onPress={() => router.push('/transactions')}
             >
               <View style={dashboardStyles.transactionIcon}>
-                <MaterialCommunityIcons name={item.icon || "bank-transfer"} size={24} color={colors.primary} />
+                <MaterialCommunityIcons name={item.icon || "bank-transfer" || "cash" || "credit-card"} size={24} color={colors.primary} />
               </View>
               <View style={dashboardStyles.transactionDetails}>
                 <Text style={dashboardStyles.transactionName}>{item.name}</Text>
@@ -236,9 +236,6 @@ export default function DashboardScreen() {
         ) : (
           <View style={dashboardStyles.emptyStateCard}>
             <Text style={dashboardStyles.emptyStateText}>No recent transactions.</Text>
-            <TouchableOpacity onPress={() => router.push('/addTransaction')}>
-              <Text style={dashboardStyles.linkAccountText}>Add your first transaction!</Text>
-            </TouchableOpacity>
           </View>
         )}
 

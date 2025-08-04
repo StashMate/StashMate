@@ -257,7 +257,7 @@ export const getLinkBankStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '500',
   },
   accountBalance: {
-    fontSize: 1,
+    fontSize: 15,
     fontWeight: '700',
     color: colors.primary,
     marginRight: 16,

@@ -75,11 +75,11 @@ export default function AddVaultScreen() {
                 <TouchableOpacity onPress={() => router.back()}>
                     <Ionicons name="close-circle" size={28} color={colors.primary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Create New Vault</Text>
+                <Text style={styles.headerTitle}>New Savings Goal</Text>
             </View>
             <ScrollView>
                 <View style={styles.form}>
-                    <Text style={styles.label}>Vault Name</Text>
+                    <Text style={styles.label}>Savings Name</Text>
                     <TextInput
                         style={styles.input}
                         placeholder="e.g., Emergency Fund"
