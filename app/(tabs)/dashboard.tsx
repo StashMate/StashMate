@@ -16,8 +16,8 @@ import { useSavings } from '../../context/SavingsContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useTransactions } from '../../context/TransactionsContext';
 import { useUser } from '../../context/UserContext';
-import { useNetBalance } from '../../hooks/useNetBalance';
 import { deleteVault as deleteVaultFromFirebase } from '../../firebase';
+import { useNetBalance } from '../../hooks/useNetBalance';
 import { fetchUnreadNotificationsCount } from '../../services/notificationService';
 import { getDashboardStyles } from '../../styles/dashboard.styles';
 
@@ -329,9 +329,6 @@ export default function DashboardScreen() {
                   <View style={{ marginLeft: 10 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Text style={dashboardStyles.vaultName}>{vault.name}</Text>
-                      <TouchableOpacity onPress={() => handleDeleteVault(vault.id)}>
-                        <Ionicons name="trash-bin-outline" size={24} color={colors.primary} />
-                      </TouchableOpacity>
                     </View>
                     <Text style={dashboardStyles.vaultProgressText}>GH₵{vault.currentAmount.toLocaleString()} / GH₵{vault.targetAmount.toLocaleString()}</Text>
                   </View>

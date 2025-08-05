@@ -1,4 +1,4 @@
-import { eachDayOfInterval, eachMonthOfInterval, endOfMonth, endOfWeek, endOfYear, format, startOfMonth, startOfWeek, startOfYear, subMonths } from 'date-fns';
+import { eachDayOfInterval, eachMonthOfInterval, endOfMonth, endOfWeek, endOfYear, format, startOfMonth, startOfWeek, startOfYear, subMonths, subWeeks, subYears } from 'date-fns';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -182,36 +182,85 @@ export default function ReportsScreen() {
         return data;
     }, [filteredTransactionsByAccount, colors]);
 
-    const { totalIncome, totalExpense, netSavings, savingsRate, monthlySpendingComparison } = useMemo(() => {
+    const processSpendingComparisonData = () => {
         const now = new Date();
-        const currentMonthStart = startOfMonth(now);
-        const lastMonthStart = startOfMonth(subMonths(now, 1));
-        const lastMonthEnd = endOfMonth(subMonths(now, 1));
+        let currentPeriodStart, lastPeriodStart, lastPeriodEnd, labels;
 
-        const currentMonthTransactions = filteredTransactionsByAccount.filter(t => {
+        switch (timeRange) {
+            case 'Weekly':
+                currentPeriodStart = startOfWeek(now);
+                lastPeriodStart = startOfWeek(subWeeks(now, 1));
+                lastPeriodEnd = endOfWeek(subWeeks(now, 1));
+                labels = ['Last Week', 'This Week'];
+                break;
+            case 'Yearly':
+                currentPeriodStart = startOfYear(now);
+                lastPeriodStart = startOfYear(subYears(now, 1));
+                lastPeriodEnd = endOfYear(subYears(now, 1));
+                labels = ['Last Year', 'This Year'];
+                break;
+            case 'Monthly':
+            default:
+                currentPeriodStart = startOfMonth(now);
+                lastPeriodStart = startOfMonth(subMonths(now, 1));
+                lastPeriodEnd = endOfMonth(subMonths(now, 1));
+                labels = ['Last Month', 'This Month'];
+                break;
+        }
+
+        const currentPeriodTransactions = filteredTransactionsByAccount.filter(t => {
             const transactionDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
-            return transactionDate >= currentMonthStart;
+            return transactionDate >= currentPeriodStart;
         });
-        const lastMonthTransactions = filteredTransactionsByAccount.filter(t => {
+        const lastPeriodTransactions = filteredTransactionsByAccount.filter(t => {
             const transactionDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
-            return transactionDate >= lastMonthStart && transactionDate <= lastMonthEnd;
+            return transactionDate >= lastPeriodStart && transactionDate <= lastPeriodEnd;
         });
 
-        const currentMonthIncome = currentMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-        const currentMonthExpense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
-        const lastMonthExpense = lastMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
-
-        const netSavings = currentMonthIncome - currentMonthExpense;
-        const savingsRate = currentMonthIncome > 0 ? (netSavings / currentMonthIncome) * 100 : 0;
+        const currentPeriodExpense = currentPeriodTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        const lastPeriodExpense = lastPeriodTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
         return {
-            totalIncome: currentMonthIncome,
-            totalExpense: currentMonthExpense,
-            netSavings,
-            savingsRate,
-            monthlySpendingComparison: { currentMonth: currentMonthExpense, lastMonth: lastMonthExpense }
+            labels,
+            datasets: [
+                { data: [lastPeriodExpense, currentPeriodExpense] }
+            ],
         };
-    }, [filteredTransactionsByAccount]);
+    };
+
+    const { totalIncome, totalExpense } = useMemo(() => {
+        const now = new Date();
+        let interval;
+
+        switch (timeRange) {
+            case 'Weekly':
+                interval = { start: startOfWeek(now), end: endOfWeek(now) };
+                break;
+            case 'Yearly':
+                interval = { start: startOfYear(now), end: endOfYear(now) };
+                break;
+            case 'Monthly':
+            default:
+                interval = { start: startOfMonth(now), end: endOfMonth(now) };
+                break;
+        }
+
+        const periodTransactions = filteredTransactionsByAccount.filter(t => {
+            if (!t.date) {
+                return false;
+            }
+            const transactionDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
+            return transactionDate >= interval.start && transactionDate <= interval.end;
+        });
+
+        const periodIncome = periodTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const periodExpense = periodTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+        return {
+            totalIncome: periodIncome,
+            totalExpense: periodExpense,
+        };
+    }, [filteredTransactionsByAccount, timeRange]);
 
     if (transactionsLoading) {
         return <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />;
@@ -254,38 +303,41 @@ export default function ReportsScreen() {
                                 <Text style={styles.metricLabel}>Total Expenses</Text>
                                 <Text style={[styles.metricValue, styles.expenseText]}>GH₵{totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                             </View>
-                            <View style={styles.metricCard}>
-                                <Text style={styles.metricLabel}>Net Savings</Text>
-                                <Text style={[styles.metricValue, netSavings >= 0 ? styles.incomeText : styles.expenseText]}>GH₵{netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                            </View>
-                            <View style={styles.metricCard}>
-                                <Text style={styles.metricLabel}>Savings Rate</Text>
-                                <Text style={styles.savingsRateText}>{savingsRate.toFixed(2)}%</Text>
-                            </View>
                         </View>
 
-                        {/* Monthly Spending Comparison */}
+                        {/* Spending Comparison Chart */}
                         <View style={styles.chartCard}>
-                            <Text style={styles.chartTitle}>Monthly Spending Comparison</Text>
-                            {monthlySpendingComparison.currentMonth > 0 || monthlySpendingComparison.lastMonth > 0 ? (
+                            <Text style={styles.chartTitle}>{timeRange} Spending Comparison</Text>
+                            {processSpendingComparisonData().datasets[0].data.some(d => d > 0) ? (
                                 <BarChart
-                                    data={{
-                                        labels: ['Last Month', 'This Month'],
-                                        datasets: [
-                                            { data: [monthlySpendingComparison.lastMonth, monthlySpendingComparison.currentMonth], colors: [(opacity = 1) => colors.warning, (opacity = 1) => colors.danger] }
-                                        ],
-                                    }}
-                                    width={screenWidth - 60} // Adjusted for padding
-                                    height={200}
+                                    data={processSpendingComparisonData()}
+                                    width={screenWidth - 60}
+                                    height={220}
                                     chartConfig={{
                                         ...chartConfig,
-                                        backgroundGradientFrom: colors.card,
-                                        backgroundGradientTo: colors.card,
-                                        color: (opacity = 1) => colors.text,
-                                        barPercentage: 0.5,
+                                        backgroundGradientFrom: colors.background,
+                                        backgroundGradientTo: colors.background,
+                                        decimalPlaces: 0,
+                                        color: (opacity = 1) => `rgba(255, 99, 132, ${opacity})`,
+                                        labelColor: (opacity = 1) => colors.text,
+                                        barPercentage: 0.8,
+                                        propsForBackgroundLines: {
+                                            stroke: colors.border,
+                                            strokeDasharray: '0',
+                                        },
+                                        fillShadowGradient: colors.primary,
+                                        fillShadowGradientOpacity: 1,
                                     }}
-                                    showValuesOnTopOfBars={true}
-                                    fromZero={true}
+                                    style={{
+                                        borderRadius: 16,
+                                        paddingRight: 10,
+                                    }}
+                                    showValuesOnTopOfBars
+                                    fromZero
+                                    withCustomBarColorFromData={false}
+                                    flatListProps={{ 
+                                        showsHorizontalScrollIndicator: false 
+                                    }}
                                 />
                             ) : (
                                 <View style={styles.emptyChartTextContainer}>
@@ -300,15 +352,29 @@ export default function ReportsScreen() {
                             {filteredTransactionsByAccount.length > 0 ? (
                                 <LineChart
                                     data={processTransactionTrendData()}
-                                    width={screenWidth - 60} // Adjusted for padding
+                                    width={screenWidth - 10} // Adjusted for less left margin
                                     height={250}
                                     chartConfig={{
                                         ...chartConfig,
-                                        backgroundGradientFrom: colors.card,
-                                        backgroundGradientTo: colors.card,
-                                        color: (opacity = 1) => colors.text,
+                                        backgroundGradientFrom: colors.background,
+                                        backgroundGradientTo: colors.background,
+                                        color: (opacity = 1) => `rgba(134, 65, 244, ${opacity})`,
+                                        labelColor: (opacity = 1) => colors.text,
+                                        propsForDots: {
+                                            r: '6',
+                                            strokeWidth: '2',
+                                            stroke: colors.primary,
+                                        },
+                                        propsForBackgroundLines: {
+                                            stroke: colors.border,
+                                            strokeDasharray: '0',
+                                        },
                                     }}
                                     bezier
+                                    style={{
+                                        borderRadius: 16,
+                                        marginLeft:-35,
+                                    }}
                                 />
                             ) : (
                                 <View style={styles.emptyChartTextContainer}>
@@ -323,18 +389,21 @@ export default function ReportsScreen() {
                             {filteredTransactionsByAccount.filter(t => t.type === 'expense').length > 0 ? (
                                 <PieChart
                                     data={processExpenseCategoryData()}
-                                    width={screenWidth - 60} // Adjusted for padding
+                                    width={screenWidth - 60}
                                     height={220}
                                     chartConfig={{
                                         ...chartConfig,
-                                        backgroundGradientFrom: colors.card,
-                                        backgroundGradientTo: colors.card,
-                                        color: (opacity = 1) => colors.text,
+                                        backgroundGradientFrom: colors.background,
+                                        backgroundGradientTo: colors.background,
+                                        color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
                                     }}
                                     accessor="population"
                                     backgroundColor="transparent"
                                     paddingLeft="15"
                                     absolute
+                                    style={{
+                                        borderRadius: 16,
+                                    }}
                                 />
                             ) : (
                                 <View style={styles.emptyChartTextContainer}>
