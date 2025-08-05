@@ -3,9 +3,10 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSavings } from '../context/SavingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { useUser } from '../context/UserContext';
-import { addVault } from '../firebase';
+import { addVault as addVaultToFirebase } from '../firebase';
 import { checkAndAwardBadges } from '../services/gamificationService';
 import { getAddVaultStyles } from '../styles/addVault.styles';
 
@@ -15,6 +16,7 @@ export default function AddVaultScreen() {
     const router = useRouter();
     const { accountId } = useLocalSearchParams();
     const { user } = useUser();
+    const { addVault: addVaultToContext, refetch } = useSavings();
 
     const [name, setName] = useState('');
     const [targetAmount, setTargetAmount] = useState('');
@@ -42,8 +44,14 @@ export default function AddVaultScreen() {
         };
 
         console.log("Vault Data being sent:", vaultData);
-        const result = await addVault(accountId, vaultData);
-        if (result.success) {
+        const result = await addVaultToFirebase(accountId, vaultData);
+        if (result.success && result.vaultId) {
+            const newVault = {
+                id: result.vaultId,
+                ...vaultData,
+                currentAmount: 0, // Assuming new vaults start with 0
+            };
+            addVaultToContext(newVault);
             Alert.alert('Success', 'Vault created successfully!');
             if(user) {
                 checkAndAwardBadges(user.uid);

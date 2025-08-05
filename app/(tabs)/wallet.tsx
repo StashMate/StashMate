@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { Timestamp } from 'firebase/firestore';
-import LottieView from 'lottie-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSavings } from '../../context/SavingsContext';
@@ -62,7 +61,9 @@ export default function SavingsScreen() {
                     text: "Delete",
                     onPress: async () => {
                         const result = await deleteVault(selectedAccount.id, vaultId);
-                        if (!result.success) {
+                        if (result.success) {
+                            refetch(); // Re-fetch vaults to update the UI
+                        } else {
                             Alert.alert("Error", "Failed to delete vault.");
                         }
                     },
@@ -93,6 +94,7 @@ export default function SavingsScreen() {
             Alert.alert("Success", "Vault updated successfully.");
             setEditModalVisible(false);
             setEditingVault(null);
+            refetch();
         } else {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             Alert.alert("Error", "Failed to update vault.");
@@ -120,6 +122,7 @@ export default function SavingsScreen() {
             setDepositModalVisible(false);
             setDepositingVault(null);
             setDepositAmount('');
+            refetch();
         } else {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             Alert.alert("Error", "Failed to make deposit.");
@@ -222,17 +225,6 @@ export default function SavingsScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            {savingsStreak > 0 && (
-                <View style={{ alignItems: 'center', marginVertical: 10 }}>
-                    <LottieView
-                        source={require('../../assets/animations/fire.json')}
-                        autoPlay
-                        loop
-                        style={{ width: 100, height: 100 }}
-                    />
-                    <Text style={styles.streakText}>You're on a {savingsStreak}-day savings streak!</Text>
-                </View>
-            )}
             <View style={styles.toggleContainer}>
                 <TouchableOpacity
                     style={[styles.toggleButton, !showBudget && styles.activeToggleButton]}

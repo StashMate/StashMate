@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
-  Modal,
   SafeAreaView,
   ScrollView,
   Text,
@@ -18,6 +17,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useTransactions } from '../../context/TransactionsContext';
 import { useUser } from '../../context/UserContext';
 import { useNetBalance } from '../../hooks/useNetBalance';
+import { deleteVault as deleteVaultFromFirebase } from '../../firebase';
 import { fetchUnreadNotificationsCount } from '../../services/notificationService';
 import { getDashboardStyles } from '../../styles/dashboard.styles';
 
@@ -28,7 +28,7 @@ export default function DashboardScreen() {
   const dashboardStyles = getDashboardStyles(colors);
   const router = useRouter();
   const { user } = useUser();
-  const { accounts, vaults, loading: savingsLoading, error: savingsError, savingsStreak } = useSavings();
+  const { accounts, vaults, loading: savingsLoading, error: savingsError, savingsStreak, deleteVault: deleteVaultFromContext } = useSavings();
   const { transactions, refreshTransactions, loading: transactionsLoading, error: transactionsError } = useTransactions();
   const { netBalance, loading: netBalanceLoading, error: netBalanceError } = useNetBalance();
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
@@ -86,6 +86,16 @@ export default function DashboardScreen() {
       opacity: chatbotTextOpacity.value,
     };
   });
+
+  const handleDeleteVault = async (vaultId: string) => {
+    const result = await deleteVaultFromFirebase(vaultId);
+    if (result.success) {
+      deleteVaultFromContext(vaultId);
+    } else {
+      // Handle error
+      console.error(result.error);
+    }
+  };
 
   const isLoading = savingsLoading || transactionsLoading || netBalanceLoading;
   const hasError = savingsError || transactionsError || netBalanceError;
@@ -200,16 +210,16 @@ export default function DashboardScreen() {
             </TouchableOpacity>
             <Text style={dashboardStyles.netWorthLabel}>Total Net Balance</Text>
             <Text style={[dashboardStyles.netWorthAmount, netBalance < 0 ? dashboardStyles.negativeNetWorth : dashboardStyles.positiveNetWorth]}>
-              ${netBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+             GH₵{netBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
             <View style={dashboardStyles.summaryRow}>
               <View style={dashboardStyles.summaryItem}>
                 <Text style={dashboardStyles.summaryLabel}>Total Income</Text>
-                <Text style={[dashboardStyles.summaryValue, dashboardStyles.positiveNetWorth]}>${totalIncomeAllTime.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                <Text style={[dashboardStyles.summaryValue, dashboardStyles.positiveNetWorth]}>₵{totalIncomeAllTime.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
               </View>
               <View style={dashboardStyles.summaryItem}>
                 <Text style={dashboardStyles.summaryLabel}>Total Expenses</Text>
-                <Text style={[dashboardStyles.summaryValue, dashboardStyles.negativeNetWorth]}>${totalExpenseAllTime.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                <Text style={[dashboardStyles.summaryValue, dashboardStyles.negativeNetWorth]}>₵{totalExpenseAllTime.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
               </View>
             </View>
           </View>
@@ -248,7 +258,7 @@ export default function DashboardScreen() {
                     </View>
                   </View>
                   <View style={dashboardStyles.accountCardContent}>
-                    <Text style={dashboardStyles.accountBalance}>${account.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                    <Text style={dashboardStyles.accountBalance}>₵{account.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                   </View>
                 </View>
               )}
@@ -289,12 +299,12 @@ export default function DashboardScreen() {
                 <View style={dashboardStyles.transactionDetails}>
                   <Text style={dashboardStyles.transactionName}>{item.name}</Text>
                   <Text style={dashboardStyles.transactionCategory}>
-                    {isReceived ? `From: ${item.category}` : `To: ${item.category}`}
+                    {isReceived ? `From: ${item.category}` : `To:${item.category}`}
                   </Text>
                   <Text style={dashboardStyles.transactionDate}>{formattedDate} at {formattedTime}</Text>
                 </View>
                 <Text style={[dashboardStyles.transactionAmount, item.amount > 0 ? dashboardStyles.incomeText : dashboardStyles.expenseText]}>
-                  {item.amount > 0 ? '+' : '-'}${Math.abs(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {item.amount > 0 ? '+' : '-'}GH₵{Math.abs(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </Text>
               </TouchableOpacity>
             );
@@ -317,8 +327,13 @@ export default function DashboardScreen() {
                 <View style={dashboardStyles.vaultDetails}>
                   <Ionicons name={vault.icon || "cube-outline"} size={24} color={colors.primary} />
                   <View style={{ marginLeft: 10 }}>
-                    <Text style={dashboardStyles.vaultName}>{vault.name}</Text>
-                    <Text style={dashboardStyles.vaultProgressText}>${vault.currentAmount.toLocaleString()} / ${vault.targetAmount.toLocaleString()}</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={dashboardStyles.vaultName}>{vault.name}</Text>
+                      <TouchableOpacity onPress={() => handleDeleteVault(vault.id)}>
+                        <Ionicons name="trash-bin-outline" size={24} color={colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={dashboardStyles.vaultProgressText}>GH₵{vault.currentAmount.toLocaleString()} / GH₵{vault.targetAmount.toLocaleString()}</Text>
                   </View>
                 </View>
                 <View style={dashboardStyles.progressBarContainer}>
@@ -365,39 +380,6 @@ export default function DashboardScreen() {
           <Animated.Text style={[dashboardStyles.chatbotText, animatedTextStyle]}>Ask StashMate AI</Animated.Text>
         </TouchableOpacity>
       </Animated.View>
-
-      {/* Net Balance Info Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={isNetBalanceInfoModalVisible}
-        onRequestClose={() => setNetBalanceInfoModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={dashboardStyles.fullScreenModalContainer}
-          activeOpacity={1}
-          onPress={() => setNetBalanceInfoModalVisible(false)}
-        >
-          <View style={dashboardStyles.infoModalContent}>
-            <Text style={dashboardStyles.infoModalTitle}>How are these calculated?</Text>
-            <Text style={dashboardStyles.infoModalText}>
-              <Text style={{ fontWeight: 'bold' }}>Total Net Balance:</Text> This is the sum of all balances across your linked accounts.
-            </Text>
-            <Text style={dashboardStyles.infoModalText}>
-              <Text style={{ fontWeight: 'bold' }}>Total Income:</Text> This represents the sum of all transactions categorized as 'income' across all time.
-            </Text>
-            <Text style={dashboardStyles.infoModalText}>
-              <Text style={{ fontWeight: 'bold' }}>Total Expenses:</Text> This represents the sum of all transactions categorized as 'expense' across all time.
-            </Text>
-            <TouchableOpacity
-              style={dashboardStyles.infoModalButton}
-              onPress={() => setNetBalanceInfoModalVisible(false)}
-            >
-              <Text style={dashboardStyles.infoModalButtonText}>Got It!</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }

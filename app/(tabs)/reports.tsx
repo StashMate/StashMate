@@ -1,13 +1,31 @@
 import { eachDayOfInterval, eachMonthOfInterval, endOfMonth, endOfWeek, endOfYear, format, startOfMonth, startOfWeek, startOfYear, subMonths } from 'date-fns';
 import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Dimensions, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator, Dimensions, SafeAreaView, ScrollView, Text, TouchableOpacity, View
+} from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
+import AccountsReport from '../../components/reports/AccountsReport';
+import BudgetReport from '../../components/reports/BudgetReport';
+import SavingsReport from '../../components/reports/SavingsReport';
+import { useBudgets } from '../../context/BudgetsContext';
 import { useSavings } from '../../context/SavingsContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useTransactions } from '../../context/TransactionsContext';
 import { useUser } from '../../context/UserContext';
 import { getReportsStyles } from '../../styles/reports.styles';
+
+
+interface BudgetItem {
+  id: string;
+  name: string;
+  category: string;
+  amount: number;
+  date: string;
+  type: 'income' | 'expense';
+  allocated: number;
+  deductFromIncome: boolean;
+}
 
 interface Transaction {
     id?: string;
@@ -25,10 +43,24 @@ export default function ReportsScreen() {
     const { colors } = useTheme();
     const styles = getReportsStyles(colors);
     const { user } = useUser();
-    const { accounts, selectedAccount, setSelectedAccount } = useSavings();
+    const { accounts, selectedAccount, setSelectedAccount, vaults } = useSavings();
     const { transactions, refreshTransactions, loading: transactionsLoading, error: transactionsError } = useTransactions();
+    const { budgets: budgetItems, loading: budgetsLoading, error: budgetsError } = useBudgets();
+
+    const totalSaved = useMemo(() => {
+      return vaults.reduce((sum, vault) => sum + vault.currentAmount, 0);
+    }, [vaults]);
+
+    const totalTarget = useMemo(() => {
+      return vaults.reduce((sum, vault) => sum + vault.targetAmount, 0);
+    }, [vaults]);
+
+    const overallProgress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0;
 
     const [timeRange, setTimeRange] = useState<TimeRange>('Monthly');
+    const [activeTab, setActiveTab] = useState('Transactions');
+
+ 
 
     useFocusEffect(
         useCallback(() => {
@@ -41,7 +73,7 @@ export default function ReportsScreen() {
         backgroundGradientFrom: colors.card,
         backgroundGradientTo: colors.card,
         decimalPlaces: 0,
-        color: (opacity = 1) => `rgba(10, 126, 164, ${opacity})`,
+        color: (opacity = 1) => `rgba(${parseInt(colors.primary.slice(1, 3), 16)}, ${parseInt(colors.primary.slice(3, 5), 16)}, ${parseInt(colors.primary.slice(5, 7), 16)}, ${opacity})`,
         labelColor: (opacity = 1) => colors.text,
         style: {
             borderRadius: 16
@@ -50,7 +82,15 @@ export default function ReportsScreen() {
             r: "6",
             strokeWidth: "2",
             stroke: colors.primary
-        }
+        },
+        propsForLabels: {
+            fontSize: 10,
+            fontWeight: 'bold',
+        },
+        propsForBackgroundLines: {
+            strokeDasharray: "0", // Solid lines
+            stroke: colors.border,
+        },
     };
 
     const screenWidth = Dimensions.get('window').width;
@@ -185,141 +225,180 @@ export default function ReportsScreen() {
         );
     }
 
+    const renderContent = () => {
+        switch (activeTab) {
+            case 'Transactions':
+                return (
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        <View style={styles.filterContainer}>
+                            {(['Weekly', 'Monthly', 'Yearly'] as TimeRange[]).map(range => (
+                                <TouchableOpacity
+                                    key={range}
+                                    style={[styles.filterButton, timeRange === range && styles.activeFilterButton]}
+                                    onPress={() => setTimeRange(range)}
+                                >
+                                    <Text style={[styles.filterButtonText, timeRange === range && styles.activeFilterButtonText]}>
+                                        {range}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        {/* Metrics Overview */}
+                        <View style={styles.metricsContainer}>
+                            <View style={styles.metricCard}>
+                                <Text style={styles.metricLabel}>Total Income</Text>
+                                <Text style={[styles.metricValue, styles.incomeText]}>GH₵{totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                            </View>
+                            <View style={styles.metricCard}>
+                                <Text style={styles.metricLabel}>Total Expenses</Text>
+                                <Text style={[styles.metricValue, styles.expenseText]}>GH₵{totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                            </View>
+                            <View style={styles.metricCard}>
+                                <Text style={styles.metricLabel}>Net Savings</Text>
+                                <Text style={[styles.metricValue, netSavings >= 0 ? styles.incomeText : styles.expenseText]}>GH₵{netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                            </View>
+                            <View style={styles.metricCard}>
+                                <Text style={styles.metricLabel}>Savings Rate</Text>
+                                <Text style={styles.savingsRateText}>{savingsRate.toFixed(2)}%</Text>
+                            </View>
+                        </View>
+
+                        {/* Monthly Spending Comparison */}
+                        <View style={styles.chartCard}>
+                            <Text style={styles.chartTitle}>Monthly Spending Comparison</Text>
+                            {monthlySpendingComparison.currentMonth > 0 || monthlySpendingComparison.lastMonth > 0 ? (
+                                <BarChart
+                                    data={{
+                                        labels: ['Last Month', 'This Month'],
+                                        datasets: [
+                                            { data: [monthlySpendingComparison.lastMonth, monthlySpendingComparison.currentMonth], colors: [(opacity = 1) => colors.warning, (opacity = 1) => colors.danger] }
+                                        ],
+                                    }}
+                                    width={screenWidth - 60} // Adjusted for padding
+                                    height={200}
+                                    chartConfig={{
+                                        ...chartConfig,
+                                        backgroundGradientFrom: colors.card,
+                                        backgroundGradientTo: colors.card,
+                                        color: (opacity = 1) => colors.text,
+                                        barPercentage: 0.5,
+                                    }}
+                                    showValuesOnTopOfBars={true}
+                                    fromZero={true}
+                                />
+                            ) : (
+                                <View style={styles.emptyChartTextContainer}>
+                                    <Text style={styles.emptyChartText}>No spending data for comparison.</Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Financial Trend Chart */}
+                        <View style={styles.chartCard}>
+                            <Text style={styles.chartTitle}>{timeRange} Financial Trend</Text>
+                            {filteredTransactionsByAccount.length > 0 ? (
+                                <LineChart
+                                    data={processTransactionTrendData()}
+                                    width={screenWidth - 60} // Adjusted for padding
+                                    height={250}
+                                    chartConfig={{
+                                        ...chartConfig,
+                                        backgroundGradientFrom: colors.card,
+                                        backgroundGradientTo: colors.card,
+                                        color: (opacity = 1) => colors.text,
+                                    }}
+                                    bezier
+                                />
+                            ) : (
+                                <View style={styles.emptyChartTextContainer}>
+                                    <Text style={styles.emptyChartText}>No transaction data to display trend.</Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Expense Categories Pie Chart */}
+                        <View style={styles.chartCard}>
+                            <Text style={styles.chartTitle}>Expense Categories</Text>
+                            {filteredTransactionsByAccount.filter(t => t.type === 'expense').length > 0 ? (
+                                <PieChart
+                                    data={processExpenseCategoryData()}
+                                    width={screenWidth - 60} // Adjusted for padding
+                                    height={220}
+                                    chartConfig={{
+                                        ...chartConfig,
+                                        backgroundGradientFrom: colors.card,
+                                        backgroundGradientTo: colors.card,
+                                        color: (opacity = 1) => colors.text,
+                                    }}
+                                    accessor="population"
+                                    backgroundColor="transparent"
+                                    paddingLeft="15"
+                                    absolute
+                                />
+                            ) : (
+                                <View style={styles.emptyChartTextContainer}>
+                                    <Text style={styles.emptyChartText}>No expense data to display categories.</Text>
+                                </View>
+                            )}
+                        </View>
+                    </ScrollView>
+                );
+            case 'Savings':
+                return (
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        <SavingsReport
+                            vaults={vaults}
+                            totalSaved={totalSaved}
+                            totalTarget={totalTarget}
+                            overallProgress={overallProgress}
+                        />
+                    </ScrollView>
+                );
+            case 'Budget':
+                return <BudgetReport budgetItems={budgetItems} />;
+            default:
+                return null;
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Reports</Text>
-                </View>
+            {/* Header */}
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Reports</Text>
+            </View>
 
-                {/* Account Selector */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.accountSelectorContainer}>
-                    <TouchableOpacity
-                        style={[styles.accountButton, !selectedAccount && styles.activeAccountButton]}
-                        onPress={() => setSelectedAccount(null)}
-                    >
-                        <Text style={[styles.accountButtonText, !selectedAccount && styles.activeAccountButtonText]}>All Accounts</Text>
-                    </TouchableOpacity>
-                    {accounts.map(account => (
-                        <TouchableOpacity
-                            key={account.id}
-                            style={[styles.accountButton, selectedAccount?.id === account.id && styles.activeAccountButton]}
-                            onPress={() => setSelectedAccount(account)}
-                        >
-                            <Text style={[styles.accountButtonText, selectedAccount?.id === account.id && styles.activeAccountButtonText]}>{account.institution}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+            <View style={styles.accountsSectionContainer}>
+                <Text style={styles.sectionTitle}>Select Account</Text>
+                <AccountsReport accounts={accounts} onSelect={setSelectedAccount} selectedAccount={selectedAccount} />
+            </View>
 
-                {/* Time Range Filter */}
-                <View style={styles.filterContainer}>
-                    {(['Weekly', 'Monthly', 'Yearly'] as TimeRange[]).map(range => (
-                        <TouchableOpacity
-                            key={range}
-                            style={[styles.filterButton, timeRange === range && styles.activeFilterButton]}
-                            onPress={() => setTimeRange(range)}
-                        >
-                            <Text style={[styles.filterButtonText, timeRange === range && styles.activeFilterButtonText]}>
-                                {range}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
+            {/* Time Range Filter */}
+            <View style={styles.tabsContainer}>
+                <TouchableOpacity
+                    style={[styles.tabButton, activeTab === 'Transactions' && styles.activeTabButton]}
+                    onPress={() => setActiveTab('Transactions')}
+                >
+                    <Text style={[styles.tabButtonText, activeTab === 'Transactions' && styles.activeTabButtonText]}>Transactions</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tabButton, activeTab === 'Savings' && styles.activeTabButton]}
+                    onPress={() => setActiveTab('Savings')}
+                >
+                    <Text style={[styles.tabButtonText, activeTab === 'Savings' && styles.activeTabButtonText]}>Savings</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tabButton, activeTab === 'Budget' && styles.activeTabButton]}
+                    onPress={() => setActiveTab('Budget')}
+                >
+                    <Text style={[styles.tabButtonText, activeTab === 'Budget' && styles.activeTabButtonText]}>Budget</Text>
+                </TouchableOpacity>
+            </View>
 
-                {/* Metrics Overview */}
-                <View style={styles.metricsContainer}>
-                    <View style={styles.metricCard}>
-                        <Text style={styles.metricLabel}>Total Income</Text>
-                        <Text style={[styles.metricValue, styles.incomeText]}>${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                    </View>
-                    <View style={styles.metricCard}>
-                        <Text style={styles.metricLabel}>Total Expenses</Text>
-                        <Text style={[styles.metricValue, styles.expenseText]}>${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                    </View>
-                    <View style={styles.metricCard}>
-                        <Text style={styles.metricLabel}>Net Savings</Text>
-                        <Text style={[styles.metricValue, netSavings >= 0 ? styles.incomeText : styles.expenseText]}>${netSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                    </View>
-                    <View style={styles.metricCard}>
-                        <Text style={styles.metricLabel}>Savings Rate</Text>
-                        <Text style={styles.savingsRateText}>{savingsRate.toFixed(2)}%</Text>
-                    </View>
-                </View>
-
-                {/* Monthly Spending Comparison */}
-                <View style={styles.chartCard}>
-                    <Text style={styles.chartTitle}>Monthly Spending Comparison</Text>
-                    {monthlySpendingComparison.currentMonth > 0 || monthlySpendingComparison.lastMonth > 0 ? (
-                        <BarChart
-                            data={{
-                                labels: ['Last Month', 'This Month'],
-                                datasets: [
-                                    { data: [monthlySpendingComparison.lastMonth, monthlySpendingComparison.currentMonth], colors: [(opacity = 1) => colors.warning, (opacity = 1) => colors.danger] }
-                                ],
-                            }}
-                            width={screenWidth - 60} // Adjusted for padding
-                            height={200}
-                            chartConfig={{
-                                ...chartConfig,
-                                backgroundGradientFrom: colors.card,
-                                backgroundGradientTo: colors.card,
-                                color: (opacity = 1) => colors.text,
-                                barPercentage: 0.5,
-                            }}
-                            showValuesOnTopOfBars={true}
-                            fromZero={true}
-                        />
-                    ) : (
-                        <Text style={styles.emptyChartText}>No spending data for comparison.</Text>
-                    )}
-                </View>
-
-                {/* Financial Trend Chart */}
-                <View style={styles.chartCard}>
-                    <Text style={styles.chartTitle}>{timeRange} Financial Trend</Text>
-                    {filteredTransactionsByAccount.length > 0 ? (
-                        <LineChart
-                            data={processTransactionTrendData()}
-                            width={screenWidth - 60} // Adjusted for padding
-                            height={250}
-                            chartConfig={{
-                                ...chartConfig,
-                                backgroundGradientFrom: colors.card,
-                                backgroundGradientTo: colors.card,
-                                color: (opacity = 1) => colors.text,
-                            }}
-                            bezier
-                        />
-                    ) : (
-                        <Text style={styles.emptyChartText}>No transaction data to display trend.</Text>
-                    )}
-                </View>
-
-                {/* Expense Categories Pie Chart */}
-                <View style={styles.chartCard}>
-                    <Text style={styles.chartTitle}>Expense Categories</Text>
-                    {filteredTransactionsByAccount.filter(t => t.type === 'expense').length > 0 ? (
-                        <PieChart
-                            data={processExpenseCategoryData()}
-                            width={screenWidth - 60} // Adjusted for padding
-                            height={220}
-                            chartConfig={{
-                                ...chartConfig,
-                                backgroundGradientFrom: colors.card,
-                                backgroundGradientTo: colors.card,
-                                color: (opacity = 1) => colors.text,
-                            }}
-                            accessor="population"
-                            backgroundColor="transparent"
-                            paddingLeft="15"
-                            absolute
-                        />
-                    ) : (
-                        <Text style={styles.emptyChartText}>No expense data to display categories.</Text>
-                    )}
-                </View>
-            </ScrollView>
+            <View style={{ flex: 1 }}>
+                {renderContent()}
+            </View>
         </SafeAreaView>
     );
 }

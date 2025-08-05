@@ -13,7 +13,7 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 10,
     paddingBottom: 10,
     backgroundColor: colors.background,
   },
@@ -24,7 +24,6 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
   },
   searchContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 10,
     backgroundColor: colors.background,
   },
   searchInput: {
@@ -37,7 +36,7 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
   },
   searchIcon: {
     position: 'absolute',
-    top: 25,
+    top: 15,
     left: 35,
     zIndex: 1,
     color: colors.secondaryText,
@@ -78,7 +77,6 @@ export const getTransactionsStyles = (colors: ThemeColors) => StyleSheet.create(
     paddingVertical: 15,
     marginTop: 20,
     borderRadius: 15,
-    marginHorizontal: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

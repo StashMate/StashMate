@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { ComponentProps, useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSavings } from '../../context/SavingsContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Transaction, useTransactions } from '../../context/TransactionsContext';
@@ -116,7 +116,7 @@ export default function TransactionsScreen() {
           </View>
           <View style={{alignItems: 'flex-end'}}>
             <Text style={[styles.transactionAmount, isReceived ? styles.income : styles.expense]}>
-              {isReceived ? '+' : '-'}${Math.abs(item.amount).toFixed(2)}
+              {isReceived ? '+' : '-'}GH₵{Math.abs(item.amount).toFixed(2)}
             </Text>
           </View>
         </View>
@@ -141,7 +141,7 @@ export default function TransactionsScreen() {
           </View>
         </View>
         <View style={styles.accountCardContent}>
-          <Text style={styles.accountBalance}>${item.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+          <Text style={styles.accountBalance}>GH₵{item.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -199,15 +199,15 @@ export default function TransactionsScreen() {
             <View style={styles.summaryContainer}>
               <View style={styles.summaryBox}>
                 <Text style={styles.summaryLabel}>Today</Text>
-                <Text style={styles.summaryValue}>${summary.daily.toFixed(2)}</Text>
+                <Text style={styles.summaryValue}>GH₵{summary.daily.toFixed(2)}</Text>
               </View>
               <View style={styles.summaryBox}>
                 <Text style={styles.summaryLabel}>This Week</Text>
-                <Text style={styles.summaryValue}>${summary.weekly.toFixed(2)}</Text>
+                <Text style={styles.summaryValue}>GH₵{summary.weekly.toFixed(2)}</Text>
               </View>
               <View style={styles.summaryBox}>
                 <Text style={styles.summaryLabel}>This Month</Text>
-                <Text style={styles.summaryValue}>${summary.monthly.toFixed(2)}</Text>
+                <Text style={styles.summaryValue}>GH₵{summary.monthly.toFixed(2)}</Text>
               </View>
             </View>
           )}
@@ -222,9 +222,9 @@ export default function TransactionsScreen() {
               </View>
               {summary.oldestDate && summary.newestDate && (
                 <View style={styles.historySummaryDateRange}>
-                  <Text style={styles.historySummaryValue}>{summary.oldestDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
-                  <Text style={styles.dateRangeSeparator}> - </Text>
-                  <Text style={styles.historySummaryValue}>{summary.newestDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
+                  <Text style={styles.historySummaryValue}>{summary.oldestDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</Text>
+                  <Text style={styles.historySummaryLabel}>-</Text>
+                  <Text style={styles.historySummaryValue}>{summary.newestDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</Text>
                 </View>
               )}
             </View>

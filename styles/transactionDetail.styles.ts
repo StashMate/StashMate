@@ -22,11 +22,35 @@ export const getTransactionDetailStyles = (colors: any) => {
     content: {
       padding: 20,
     },
+    amountContainer: {
+      alignItems: 'center',
+      marginVertical: 20,
+    },
+    amount: {
+      fontSize: 48,
+      fontWeight: 'bold',
+    },
+    transactionName: {
+      fontSize: 20,
+      color: colors.secondaryText,
+      marginTop: 5,
+    },
+    detailsCard: {
+      backgroundColor: colors.card,
+      borderRadius: 10,
+      padding: 20,
+      marginTop: 20,
+    },
     detailRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 20,
+      paddingVertical: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    lastDetailRow: {
+      borderBottomWidth: 0,
     },
     label: {
       fontSize: 16,

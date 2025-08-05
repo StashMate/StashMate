@@ -2,12 +2,14 @@ import { Feather, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { useTheme } from '../../context/ThemeContext';
+import { BudgetsProvider } from '../../context/BudgetsContext';
 
 export default function TabLayout() {
   const { colors } = useTheme();
 
   return (
-    <Tabs
+    <BudgetsProvider>
+      <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.link,
         tabBarStyle: {
@@ -61,5 +63,6 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </BudgetsProvider>
   );
 }

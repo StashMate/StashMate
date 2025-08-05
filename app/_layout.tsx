@@ -69,6 +69,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="addVault" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="editTransaction" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="transactionDetail" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="linkBank" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="logout" options={{ presentation: 'transparentModal', animation: 'fade_from_bottom', headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />

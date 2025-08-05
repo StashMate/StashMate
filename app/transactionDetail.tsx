@@ -35,31 +35,30 @@ export default function TransactionDetailScreen() {
         </View>
 
         <View style={styles.content}>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Name</Text>
-            <Text style={styles.value}>{transaction.name}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Amount</Text>
-            <Text style={[styles.value, isReceived ? styles.income : styles.expense]}>
-              {isReceived ? '+' : '-'}${Math.abs(transaction.amount).toFixed(2)}
+          <View style={styles.amountContainer}>
+            <Text style={[styles.amount, isReceived ? styles.income : styles.expense]}>
+              {isReceived ? '+' : '-'}GH₵{Math.abs(transaction.amount).toFixed(2)}
             </Text>
+            <Text style={styles.transactionName}>{transaction.name}</Text>
           </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Category</Text>
-            <Text style={styles.value}>{transaction.category}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Date</Text>
-            <Text style={styles.value}>{formattedDate}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Time</Text>
-            <Text style={styles.value}>{formattedTime}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>{isReceived ? 'From' : 'To'}</Text>
-            <Text style={styles.value}>{transaction.category}</Text>
+
+          <View style={styles.detailsCard}>
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Category</Text>
+              <Text style={styles.value}>{transaction.category}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Date</Text>
+              <Text style={styles.value}>{formattedDate}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Time</Text>
+              <Text style={styles.value}>{formattedTime}</Text>
+            </View>
+            <View style={[styles.detailRow, styles.lastDetailRow]}>
+              <Text style={styles.label}>{isReceived ? 'From' : 'To'}</Text>
+              <Text style={styles.value}>{transaction.category}</Text>
+            </View>
           </View>
         </View>
     </SafeAreaView>

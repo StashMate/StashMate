@@ -16,11 +16,9 @@ export const getSavingsStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 25,
     fontWeight: 'bold',
     color: colors.text,
   },

@@ -7,9 +7,10 @@ import {
   signInWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, query, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch } from "firebase/firestore";
-import { addNotification } from './services/notificationService';
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, query, serverTimestamp, setDoc, Timestamp, updateDoc, writeBatch } from "firebase/firestore";
 import { getStorage } from 'firebase/storage';
+import { addNotification } from './services/notificationService';
+import { checkAndAwardBadges, checkAndCompleteChallenges } from './services/gamificationService';
 // import { FlutterWaveButton, closePaymentModal } from 'flutterwave-react-v3';
 
 const firebaseConfig = {
@@ -229,8 +230,6 @@ export const signInWithGoogle = async (id_token: string) => {
  * @param {object} transactionData - The transaction data.
  * @returns {Promise<{success: boolean, error?: any}>}
  */
-import { checkAndAwardBadges, checkAndCompleteChallenges } from './services/gamificationService';
-
 export const addTransaction = async (userId: string, transactionData: { name: string; amount: number; category: string; type: 'income' | 'expense' }) => {
   try {
     const transactionsCollectionRef = collection(db, 'transactions');
@@ -362,7 +361,7 @@ export const addVault = async (accountId: string, vaultData: { name: string; tar
     const vaultsCollectionRef = collection(db, 'accounts', accountId, 'vaults');
     const existingVaultsSnapshot = await getDocs(vaultsCollectionRef);
 
-    await addDoc(vaultsCollectionRef, {
+    const docRef = await addDoc(vaultsCollectionRef, {
       ...vaultData,
       accountId: accountId, // Add accountId to the vault document
       deadline: Timestamp.fromDate(vaultData.deadline),
@@ -379,7 +378,7 @@ export const addVault = async (accountId: string, vaultData: { name: string; tar
         message: `Congratulations! You've created your first savings vault: ${vaultData.name}.`,
       });
     }
-    return { success: true };
+    return { success: true, vaultId: docRef.id };
   } catch (error: any) {
     console.error("Error adding vault:", error);
     return { success: false, error: "Failed to add vault." };
@@ -447,6 +446,12 @@ export const addVaultDeposit = async (accountId: string, vaultId: string, amount
         timestamp: serverTimestamp(),
       }
     });
+
+    const accountDoc = await getDoc(doc(db, 'accounts', accountId));
+    const accountData = accountDoc.data();
+    if (accountData && accountData.userId) {
+        await checkAndAwardBadges(accountData.userId);
+    }
     
     return { success: true };
   } catch (error: any) {
@@ -461,6 +466,51 @@ export const addVaultDeposit = async (accountId: string, vaultId: string, amount
  * @returns {Promise<{success: boolean, data?: any, error?: any}>}
  */
 
+
+
+/**
+ * Deletes a budget item for a specific user.
+ * @param {string} userId - The ID of the user.
+ * @param {string} budgetItemId - The ID of the budget item to delete.
+ * @returns {Promise<{success: boolean, error?: any}>}
+ */
+export const deleteBudgetItem = async (userId: string, budgetItemId: string) => {
+  try {
+    const budgetItemDocRef = doc(db, 'users', userId, 'budgets', budgetItemId);
+    await deleteDoc(budgetItemDocRef);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting budget item:", error);
+    return { success: false, error: "Failed to delete budget item." };
+  }
+};
+
+/**
+ * Fetches all savings vaults for a specific account.
+ * @param {string} accountId - The ID of the account to fetch vaults for.
+ * @returns {Promise<{success: boolean, data?: any[], error?: any}>}
+ */
+export const getVaultsForAccount = async (accountId: string) => {
+  try {
+    const vaultsCollectionRef = collection(db, 'accounts', accountId, 'vaults');
+    const q = query(vaultsCollectionRef);
+    const querySnapshot = await getDocs(q);
+    const vaults = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    return { success: true, data: vaults };
+  } catch (error: any) {
+    console.error("Error fetching vaults for account:", error);
+    return { success: false, error: "Failed to fetch vaults." };
+  }
+};
+
+/*
+ * Gets savings analytics for a specific account.
+ * @param {string} accountId - The ID of the account to analyze.
+ * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+ */
 export const getSavingsAnalytics = async (accountId: string) => {
   try {
     const vaultsCollectionRef = collection(db, 'accounts', accountId, 'vaults');
