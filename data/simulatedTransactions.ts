@@ -147,7 +147,7 @@ export const simulatedTransactions = [
   },
   {
     id: 'tx402',
-    name: 'Received from Client',
+    name: 'Received from Doctor Linda',
     amount: 150.00,
     category: 'Income',
     type: 'income',

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Dimensions } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -69,7 +69,7 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgetItems }) => {
       fontWeight: 'bold',
       color: colors.text,
       marginBottom: 10,
-      marginTop: 20, // Added margin top for spacing
+      marginTop: 20,
     },
     itemContainer: {
       flexDirection: 'row',
@@ -103,6 +103,12 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgetItems }) => {
     },
     chartContainer: {
         alignItems: 'center',
+        marginBottom: 20,
+    },
+    emptyText: {
+        textAlign: 'center',
+        color: colors.secondaryText,
+        marginTop: 20,
     }
   });
 
@@ -140,8 +146,8 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgetItems }) => {
     }));
   }, [budgetItems, colors]);
 
-  const renderListHeader = () => (
-    <>
+  return (
+    <ScrollView style={styles.container}>
       <View style={styles.summaryCard}>
         <Text style={styles.summaryTitle}>Budget Summary</Text>
         <View style={styles.summaryRow}>
@@ -158,8 +164,8 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgetItems }) => {
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Expense Categories</Text>
       <View style={styles.chartContainer}>
+        <Text style={styles.sectionTitle}>Expense Categories</Text>
         {processBudgetCategoryData.length > 0 ? (
           <PieChart
             data={processBudgetCategoryData}
@@ -172,38 +178,27 @@ const BudgetReport: React.FC<BudgetReportProps> = ({ budgetItems }) => {
             absolute
           />
         ) : (
-          <Text style={{ textAlign: 'center', color: colors.secondaryText }}>No expense data to display categories.</Text>
+          <Text style={styles.emptyText}>No expense data to display categories.</Text>
         )}
       </View>
 
-      <Text style={styles.sectionTitle}>Budget Items</Text>
-    </>
-  );
-
-  return (
-    <FlatList
-      style={styles.container}
-      data={budgetItems}
-      keyExtractor={(item) => item.id}
-      ListHeaderComponent={renderListHeader}
-      renderItem={({ item }) => (
-        <View style={styles.itemContainer}>
-          <View style={styles.itemDetails}>
-            <Text style={styles.itemText}>{item.name}</Text>
-            <Text style={styles.itemSubText}>{item.category} - {item.date}</Text>
-          </View>
-          <Text style={[styles.itemAmount, item.type === 'income' ? styles.incomeText : styles.expenseText]}>
-            {item.type === 'income' ? '+' : '-'}GH₵{item.amount.toFixed(2)}
-          </Text>
-        </View>
+      <Text style={styles.sectionTitle}>All Budget Items</Text>
+      {budgetItems.length > 0 ? (
+        budgetItems.map(item => (
+            <View key={item.id} style={styles.itemContainer}>
+                <View style={styles.itemDetails}>
+                    <Text style={styles.itemText}>{item.name}</Text>
+                    <Text style={styles.itemSubText}>{item.category} - {item.date}</Text>
+                </View>
+                <Text style={[styles.itemAmount, item.type === 'income' ? styles.incomeText : styles.expenseText]}>
+                    {item.type === 'income' ? '+' : '-'}GH₵{item.amount.toFixed(2)}
+                </Text>
+            </View>
+        ))
+      ) : (
+        <Text style={styles.emptyText}>No budget items to display.</Text>
       )}
-      ListEmptyComponent={(
-        <View>
-            {renderListHeader()} 
-            <Text style={{ textAlign: 'center', color: colors.secondaryText, marginTop: 10 }}>No budget items to display.</Text>
-        </View>
-      )}
-    />
+    </ScrollView>
   );
 };
 

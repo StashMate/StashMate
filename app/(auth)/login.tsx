@@ -17,6 +17,7 @@ import { useUser } from '../../context/UserContext';
 import { signInWithEmail } from '../../firebase';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { getAuthStyles } from '../../styles/auth.styles';
+import { generateNotifications } from '../../services/notificationService';
 
 export default function LoginScreen() {
   const { colors } = useTheme();
@@ -59,6 +60,7 @@ export default function LoginScreen() {
 
     if (result.success && result.user) {
       setUser(result.user);
+      await generateNotifications(result.user.uid);
       router.replace('/(tabs)/dashboard');
     } else {
       setError(getFriendlyErrorMessage(result.error));

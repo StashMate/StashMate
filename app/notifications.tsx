@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { getNotificationsStyles } from '../styles/notifications.styles';
 import { useRouter } from 'expo-router';
 import { useUser } from '../context/UserContext';
-import { fetchNotifications, markNotificationAsRead, Notification, generateNotifications } from '../services/notificationService';
+import { fetchNotifications, markNotificationAsRead, Notification } from '../services/notificationService';
+import { useFocusEffect } from 'expo-router';
 
 export default function NotificationsScreen() {
   const { colors } = useTheme();
@@ -17,7 +18,7 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadNotifications = React.useCallback(async (onlyUnread: boolean = false) => {
+  const loadNotifications = useCallback(async () => {
     if (!user) {
       setLoading(false);
       setError("User not logged in.");
@@ -26,7 +27,8 @@ export default function NotificationsScreen() {
 
     try {
       setLoading(true);
-      const fetchedNotifications = await fetchNotifications(user.uid, onlyUnread);
+      // Fetch only unread notifications
+      const fetchedNotifications = await fetchNotifications(user.uid, true);
       setNotifications(fetchedNotifications);
     } catch (err) {
       console.error("Failed to fetch notifications:", err);
@@ -36,21 +38,22 @@ export default function NotificationsScreen() {
     }
   }, [user]);
 
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
+  useFocusEffect(
+    useCallback(() => {
+      loadNotifications();
+    }, [loadNotifications])
+  );
 
-  const handleRefresh = () => {
-    loadNotifications(true); // Pass true to fetch only unread notifications
-  };
-
-  const handleNotificationPress = async (notificationId: string) => {
+  const handleNotificationPress = async (notificationId: string, notificationData?: any) => {
     if (user) {
       await markNotificationAsRead(notificationId, user.uid);
-      // After marking as read, refresh the notifications to hide the read one
-      loadNotifications(true);
+      // Optimistically remove the notification from the UI
+      setNotifications(prevNotifications => prevNotifications.filter(n => n.id !== notificationId));
+
+      if (notificationData?.targetScreen) {
+        router.push(`/(tabs)/${notificationData.targetScreen}`);
+      }
     }
-    // Optionally navigate or show details based on notification type
   };
 
   if (loading) {
@@ -76,7 +79,7 @@ export default function NotificationsScreen() {
           <Feather name="arrow-left" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity onPress={handleRefresh}>
+        <TouchableOpacity onPress={loadNotifications}>
           <Feather name="refresh-cw" size={20} color={colors.text} />
         </TouchableOpacity>
       </View>
@@ -85,13 +88,13 @@ export default function NotificationsScreen() {
           <Text style={styles.emptyStateText}>No new notifications.</Text>
         ) : (
           notifications.map(item => (
-            <TouchableOpacity key={item.id} onPress={() => handleNotificationPress(item.id)}>
-              <View style={[styles.notificationItem, !item.read && styles.unreadItem]}>
+            <TouchableOpacity key={item.id} onPress={() => handleNotificationPress(item.id, item.data)}>
+              <View style={styles.notificationItem}>
                 <View style={styles.notificationTextContainer}>
                     <Text style={styles.notificationTitle}>{item.title}</Text>
                     <Text style={styles.notificationMessage}>{item.message}</Text>
                 </View>
-                {!item.read && <View style={styles.unreadDot} />}
+                <View style={styles.unreadDot} />
               </View>
             </TouchableOpacity>
           ))

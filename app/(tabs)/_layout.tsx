@@ -1,8 +1,8 @@
-import { Feather, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { useTheme } from '../../context/ThemeContext';
 import { BudgetsProvider } from '../../context/BudgetsContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -38,11 +38,11 @@ export default function TabLayout() {
       />
       
       <Tabs.Screen
-        name="wallet"
+        name="plan"
         options={{
-          title: 'Wallet',
+          title: 'Plan',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'clipboard' : 'clipboard-outline'} size={24} color={color} />
           ),
         }}
       />

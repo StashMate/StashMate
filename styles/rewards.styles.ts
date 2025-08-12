@@ -126,6 +126,43 @@ export const getRewardsStyles = (colors: IColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  inactiveChallengeContainer: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    opacity: 0.7,
+  },
+  inactiveChallengeName: {
+    color: colors.secondaryText,
+  },
+  inactiveChallengeDescription: {
+    color: colors.secondaryText,
+  },
+  activateChallengeButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 10,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  activateChallengeButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  cancelChallengeButton: {
+    backgroundColor: colors.danger,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    alignSelf: 'flex-end',
+  },
+  cancelChallengeButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
   challengeHeader: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -6,7 +6,7 @@ import { db } from '../firebase';
 export interface Notification {
     id: string;
     userId: string;
-    type: 'bill_reminder' | 'streak_warning' | 'info' | 'gamification_level_up' | 'gamification_badge_unlocked' | 'gamification_challenge_completed' | 'welcome_back';
+    type: 'bill_reminder' | 'streak_warning' | 'info' | 'gamification_level_up' | 'gamification_badge_unlocked' | 'gamification_challenge_completed' | 'welcome_back' | 'gamification_challenge_prompt' | 'challenge_started';
     title: string;
     message: string;
     read: boolean;
@@ -20,6 +20,7 @@ export interface Notification {
         streakDays?: number;
         billDueDate?: any; // Timestamp
         badgeName?: string;
+        targetScreen?: string; // New property for navigation
     };
 }
 
@@ -37,6 +38,7 @@ interface UserData {
     streak?: number;
     lastLogin?: any; // Timestamp
     lastWelcomeNotificationSent?: any; // Timestamp of last welcome notification
+    lastChallengePromptSent?: any; // Timestamp of last challenge prompt
     badges?: string[]; // Assuming user data includes a list of acquired badges
 }
 
@@ -60,6 +62,32 @@ export const addNotification = async (notificationData: Omit<Notification, 'id' 
     } catch (error) {
         console.error('Error adding notification:', error);
         return null;
+    }
+};
+
+/**
+ * Generates a challenge prompt notification if not already sent today.
+ * @param userId The ID of the current user.
+ */
+const generateChallengePromptNotification = async (userId: string) => {
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+    const userData: UserData = userDoc.exists() ? userDoc.data() as UserData : {};
+
+    const now = new Date();
+    const lastSent = userData.lastChallengePromptSent?.toDate();
+
+    if (!lastSent || !isToday(lastSent)) {
+        await addNotification({
+            userId,
+            type: 'gamification_challenge_prompt',
+            title: 'Up for a Challenge?',
+            message: 'Would you like to take on some challenges to boost your savings?',
+            read: false,
+        });
+        await updateDoc(userDocRef, {
+            lastChallengePromptSent: serverTimestamp(),
+        });
     }
 };
 
@@ -116,6 +144,9 @@ export const generateNotifications = async (userId: string): Promise<Notificatio
 
     // Generate welcome back notification (once per day)
     await generateWelcomeBackNotification(userId);
+
+    // Generate challenge prompt notification (once per day)
+    await generateChallengePromptNotification(userId);
 
     // Fetch user's transactions
     const transactionsQuery = query(collection(db, 'transactions'), where('userId', '==', userId));

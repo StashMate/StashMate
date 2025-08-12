@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { db } from '../firebase';
 import { useUser } from './UserContext';
 
@@ -40,18 +40,15 @@ export const BudgetsProvider = ({ children }) => {
     const [error, setError] = useState<Error | null>(null);
 
     const fetchBudgets = useCallback(async () => {
-        console.log('BudgetsContext: fetchBudgets called.');
-        console.log('BudgetsContext: User in context:', user ? user.uid : 'No user');
+
 
         if (!user) {
-            console.log('BudgetsContext: No user, setting budgets to empty and loading to false.');
             setBudgets([]);
             setLoading(false);
             return;
         }
 
         setLoading(true);
-        console.log('BudgetsContext: Loading set to true. Attempting to fetch budgets for user:', user.uid);
         try {
             const budgetsCollection = collection(db, 'users', user.uid, 'budgets');
             const budgetSnapshot = await getDocs(budgetsCollection);
@@ -60,47 +57,38 @@ export const BudgetsProvider = ({ children }) => {
                 ...doc.data()
             })) as BudgetItem[];
             setBudgets(budgetsList);
-            console.log('BudgetsContext: Fetched budgets successfully. Count:', budgetsList.length);
         } catch (err) {
-            console.error('BudgetsContext: Error fetching budgets:', err);
             setError(err as Error);
         } finally {
             setLoading(false);
-            console.log('BudgetsContext: Loading set to false.');
         }
     }, [user]);
 
     const addBudgetItem = useCallback(async (item: Omit<BudgetItem, 'id'>) => {
         if (!user) {
-            console.log('BudgetsContext: addBudgetItem - No user, returning.');
             return;
         }
-        console.log('BudgetsContext: addBudgetItem - Attempting to add item:', item);
         try {
             const docRef = await addDoc(collection(db, 'users', user.uid, 'budgets'), {
                 ...item,
                 userId: user.uid,
             });
-            console.log('BudgetsContext: addBudgetItem - Item added successfully with ID:', docRef.id);
+
             fetchBudgets();
         } catch (err) {
-            console.error("BudgetsContext: Error adding budget item:", err);
             setError(err as Error);
         }
     }, [user, fetchBudgets]);
 
     const updateBudgetItem = useCallback(async (id: string, item: Partial<BudgetItem>) => {
         if (!user) {
-            console.log('BudgetsContext: updateBudgetItem - No user, returning.');
             return;
         }
-        console.log('BudgetsContext: updateBudgetItem - Attempting to update item ID:', id, 'with data:', item);
         try {
             await updateDoc(doc(db, 'users', user.uid, 'budgets', id), item);
-            console.log('BudgetsContext: updateBudgetItem - Item updated successfully for ID:', id);
+
             fetchBudgets();
         } catch (err) {
-            console.error("BudgetsContext: Error updating budget item:", err);
             setError(err as Error);
         }
     }, [user, fetchBudgets]);
@@ -111,7 +99,6 @@ export const BudgetsProvider = ({ children }) => {
             await deleteDoc(doc(db, 'users', user.uid, 'budgets', id));
             fetchBudgets();
         } catch (err) {
-            console.error("Error deleting budget item:", err);
             setError(err as Error);
         }
     }, [user, fetchBudgets]);

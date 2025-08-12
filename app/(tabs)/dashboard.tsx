@@ -353,13 +353,13 @@ export default function DashboardScreen() {
           )}
 
           {/* Recent Transactions */}
-          <Text style={dashboardStyles.sectionTitle}>Investments</Text>
+          <Text style={dashboardStyles.sectionTitle}> Trending Stocks</Text>
           <TouchableOpacity onPress={() => router.push('/investment')} style={dashboardStyles.investmentCard}>
             <View style={dashboardStyles.investmentCardContent}>
               <MaterialCommunityIcons name="chart-line" size={40} color={colors.primary} />
               <View style={dashboardStyles.investmentTextContainer}>
-                <Text style={dashboardStyles.investmentTitle}>Crypto & Stocks</Text>
-                <Text style={dashboardStyles.investmentSubtitle}>Track your portfolio and discover opportunities</Text>
+                <Text style={dashboardStyles.investmentTitle}>Stocks</Text>
+                <Text style={dashboardStyles.investmentSubtitle}>Discover Trending Stocks</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={24} color={colors.secondaryText} />
             </View>

@@ -373,7 +373,7 @@ export default function ReportsScreen() {
                                     bezier
                                     style={{
                                         borderRadius: 16,
-                                        marginLeft:-35,
+                                        marginLeft:-30,
                                     }}
                                 />
                             ) : (
