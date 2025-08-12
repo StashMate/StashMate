@@ -8,9 +8,13 @@ interface BudgetItem {
     name: string;
     category: string;
     amount: number;
+    date: string;
     type: 'income' | 'expense';
     allocated: number;
     deductFromIncome: boolean;
+    notes: string;
+    reminder: boolean;
+    reminderDate?: Date;
 }
 
 interface BudgetsContextType {
@@ -73,6 +77,17 @@ export const BudgetsProvider = ({ children }) => {
                 ...item,
                 userId: user.uid,
             });
+
+            if (item.type === 'expense') {
+                await addDoc(collection(db, 'transactions'), {
+                    name: item.name,
+                    category: item.category,
+                    amount: item.amount,
+                    type: 'expense',
+                    date: new Date(),
+                    userId: user.uid,
+                });
+            }
 
             fetchBudgets();
         } catch (err) {

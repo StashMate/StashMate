@@ -51,7 +51,14 @@ export default function NotificationsScreen() {
       setNotifications(prevNotifications => prevNotifications.filter(n => n.id !== notificationId));
 
       if (notificationData?.targetScreen) {
-        router.push(`/(tabs)/${notificationData.targetScreen}`);
+        if (notificationData.targetScreen === 'rewards') {
+          router.push({
+            pathname: '/rewards',
+            params: { tab: notificationData.targetTab },
+          });
+        } else {
+          router.push(`/(tabs)/${notificationData.targetScreen}`);
+        }
       }
     }
   };

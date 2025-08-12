@@ -251,6 +251,7 @@ export default function BudgetScreen() {
       name: budgetItem,
       category,
       amount: parseFloat(amount),
+      date: new Date().toISOString(),
       type: transactionType,
       allocated: 0,
       deductFromIncome,

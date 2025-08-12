@@ -84,6 +84,7 @@ const generateChallengePromptNotification = async (userId: string) => {
             title: 'Up for a Challenge?',
             message: 'Would you like to take on some challenges to boost your savings?',
             read: false,
+            data: { targetScreen: 'rewards', targetTab: 'challenges' },
         });
         await updateDoc(userDocRef, {
             lastChallengePromptSent: serverTimestamp(),

@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
+import LottieView from 'lottie-react-native';
 import React, { ComponentProps, useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -236,7 +237,7 @@ export default function DashboardScreen() {
             </TouchableOpacity>
             <View style={dashboardStyles.quickActionButton}>
               <Ionicons name="flame" size={28} color={savingsStreak > 0 ? colors.accent : colors.secondaryText} />
-              <Text style={dashboardStyles.quickActionButtonText}>{savingsStreak} Day Streak</Text>
+              <Text style={dashboardStyles.quickActionButtonText}>{savingsStreak} Savings Streak</Text>
             </View>
           </View>
 

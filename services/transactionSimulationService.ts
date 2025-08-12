@@ -1,5 +1,5 @@
-import { Timestamp, collection, addDoc, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { Timestamp, addDoc, collection, doc, increment, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // Types of transactions that can be simulated
 export enum TransactionType {

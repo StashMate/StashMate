@@ -1,96 +1,12 @@
-
 // Add these functions to your existing functions/index.ts file
-
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import fetch from "node-fetch";
-import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
 
 admin.initializeApp();
 
-const configuration = new Configuration({
-  basePath: PlaidEnvironments.sandbox,
-  baseOptions: {
-    headers: {
-      "PLAID-CLIENT-ID": functions.config().plaid.client_id,
-      "PLAID-SECRET": functions.config().plaid.secret,
-    },
-  },
-});
-
-const client = new PlaidApi(configuration);
-
-export const createLinkToken = functions.https.onCall(async (data, context) => {
-  const clientUserId = context.auth.uid;
-  const request = {
-    user: {
-      client_user_id: clientUserId,
-    },
-    client_name: "StashMate",
-    products: ["transactions"],
-    country_codes: ["US"], // Change to your country
-    language: "en",
-  };
-  try {
-    const createTokenResponse = await client.linkTokenCreate(request);
-    return createTokenResponse.data.link_token;
-  } catch (error) {
-    throw new functions.https.HttpsError("internal", "Error creating link token");
-  }
-});
-
-export const exchangePublicToken = functions.https.onCall(async (data, context) => {
-  const publicToken = data.publicToken;
-  try {
-    const response = await client.itemPublicTokenExchange({
-      public_token: publicToken,
-    });
-    const accessToken = response.data.access_token;
-    const itemId = response.data.item_id;
-    await admin.firestore().collection("users").doc(context.auth.uid).update({
-      plaidAccessToken: accessToken,
-      plaidItemId: itemId,
-    });
-    return { status: "success" };
-  } catch (error) {
-    throw new functions.https.HttpsError("internal", "Error exchanging public token");
-  }
-});
-
-export const plaidWebhook = functions.https.onRequest(async (req, res) => {
-  const { webhook_type, item_id, new_transactions } = req.body;
-
-  if (webhook_type === "TRANSACTIONS") {
-    if (new_transactions > 0) {
-      const userSnapshot = await admin.firestore().collection("users").where("plaidItemId", "==", item_id).get();
-      if (!userSnapshot.empty) {
-        const userId = userSnapshot.docs[0].id;
-        const accessToken = userSnapshot.docs[0].data().plaidAccessToken;
-        const response = await client.transactionsSync({
-          access_token: accessToken,
-        });
-        const transactions = response.data.added;
-        const batch = admin.firestore().batch();
-        transactions.forEach((transaction) => {
-          const transactionRef = admin.firestore().collection("users").doc(userId).collection("transactions").doc(transaction.transaction_id);
-          batch.set(transactionRef, transaction);
-        });
-        await batch.commit();
-      }
-    }
-  }
-  res.status(200).send("Webhook received");
-});
-
 export const verifyBankAccount = functions.https.onCall(async (data, context) => {
-  // Ensure user is authenticated
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      "unauthenticated",
-      "The function must be called while authenticated."
-    );
-  }
-
+ 
   const { accountNumber, bankCode } = data;
 
   try {

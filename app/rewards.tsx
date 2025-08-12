@@ -1,20 +1,22 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useUser } from '../context/UserContext';
-import { addChallenge, AwardedBadge, Badge, Challenge, fetchActiveChallenges, fetchAwardedBadges, predefinedBadges } from '../services/gamificationService';
+import { addChallenge, AwardedBadge, Badge, cancelChallenge, Challenge, fetchActiveChallenges, fetchAwardedBadges, predefinedBadges } from '../services/gamificationService';
 import { getRewardsStyles } from '../styles/rewards.styles';
 
 
 type Tab = 'badges' | 'challenges';
 
 export default function RewardsScreen() {
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { colors } = useTheme();
   const styles = getRewardsStyles(colors);
   const { user } = useUser();
 
-  const [activeTab, setActiveTab] = useState<Tab>('badges');
+  const [activeTab, setActiveTab] = useState<Tab>(tab === 'challenges' ? 'challenges' : 'badges');
   const [awardedBadges, setAwardedBadges] = useState<AwardedBadge[]>([]);
   const [allBadges, setAllBadges] = useState<Badge[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -38,11 +40,15 @@ export default function RewardsScreen() {
           fetchAwardedBadges(user.uid),
           fetchActiveChallenges(user.uid),
         ]);
-        setAwardedBadges(awarded);
-        setAllBadges(predefinedBadges); // Use predefined badges
+
+        const manuallyAwardedBadges = predefinedBadges
+          .filter(badge => ['savings_master', 'first_vault', 'emergency_funder'].includes(badge.id))
+          .map(badge => ({ ...badge, awardedAt: new Date(), userId: user.uid }));
+
+        setAwardedBadges(manuallyAwardedBadges);
+        setAllBadges(predefinedBadges); 
         setChallenges(activeChallenges);
 
-        // Filter out predefined challenges that are already active for the user
         const activeChallengeIds = new Set(activeChallenges.map(c => c.id));
         const filteredAvailableChallenges = predefinedNewChallenges.filter(
           pc => !activeChallengeIds.has(pc.id)
@@ -66,10 +72,8 @@ export default function RewardsScreen() {
     }
     setLoading(true);
     try {
-      // In a real app, you would update the challenge status in Firestore here
-      // For now, we'll just remove it from the local state
+      await cancelChallenge(challengeId);
       setChallenges(prev => prev.filter(c => c.id !== challengeId));
-      // Optionally, add it back to available challenges if it's a predefined one
       const cancelledChallenge = predefinedNewChallenges.find(pc => pc.id === challengeId);
       if (cancelledChallenge) {
         setAvailableChallenges(prev => [...prev, { ...cancelledChallenge, userId: user.uid, currentValue: 0, startDate: null, endDate: null, isCompleted: false, isActive: false }]);

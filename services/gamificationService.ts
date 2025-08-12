@@ -179,12 +179,23 @@ export const checkAndAwardBadges = async (userId: string) => {
 
 export const fetchActiveChallenges = async (userId: string): Promise<Challenge[]> => {
     try {
-        const q = query(collection(db, 'userChallenges'), where('userId', '==', userId), where('isCompleted', '==', false));
+        const q = query(collection(db, 'userChallenges'), where('userId', '==', userId), where('isActive', '==', true));
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Challenge));
     } catch (error) {
         console.error('Error fetching active challenges:', error);
         return [];
+    }
+};
+
+export const cancelChallenge = async (challengeId: string): Promise<void> => {
+    try {
+        const challengeDocRef = doc(db, 'userChallenges', challengeId);
+        await updateDoc(challengeDocRef, { isActive: false });
+        console.log(`Challenge ${challengeId} has been cancelled.`);
+    } catch (error) {
+        console.error('Error cancelling challenge:', error);
+        throw error;
     }
 };
 
